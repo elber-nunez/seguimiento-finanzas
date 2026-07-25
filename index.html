@@ -95,6 +95,74 @@
       </div>
 
       <div class="section-title">
+        <h2>Dashboard del mes</h2>
+      </div>
+
+      <div class="dashboard-grid">
+        <article class="card chart-card">
+          <div class="chart-head">
+            <div>
+              <h3>Ingresos y gastos</h3>
+              <small>Comparación del mes seleccionado</small>
+            </div>
+          </div>
+          <div id="summaryBars" class="summary-bars"></div>
+        </article>
+
+        <article class="card chart-card">
+          <div class="chart-head">
+            <div>
+              <h3>Estado del presupuesto</h3>
+              <small>Pagado, pendiente y saldo esperado</small>
+            </div>
+          </div>
+          <div class="donut-layout">
+            <div id="budgetDonut" class="donut">
+              <div>
+                <strong id="donutPct">0%</strong>
+                <span>pagado</span>
+              </div>
+            </div>
+            <div id="budgetLegend" class="legend"></div>
+          </div>
+        </article>
+      </div>
+
+      <article class="card category-chart-card">
+        <div class="chart-head">
+          <div>
+            <h3>Gastos por categoría</h3>
+            <small>Distribución de todos los gastos planificados</small>
+          </div>
+        </div>
+        <div id="categoryBars" class="category-bars"></div>
+      </article>
+
+      <div id="generalTableCard" class="card general-table-card">
+        <div class="chart-head">
+          <div>
+            <h3>Comparación Elber y Mayra</h3>
+            <small>Resumen del mes seleccionado</small>
+          </div>
+        </div>
+        <div class="table-scroll">
+          <table class="summary-table">
+            <thead>
+              <tr>
+                <th>Persona</th>
+                <th>Ingresos</th>
+                <th>Gastado</th>
+                <th>Pendiente</th>
+                <th>Disponible</th>
+                <th>Saldo esperado</th>
+              </tr>
+            </thead>
+            <tbody id="generalSummaryTable"></tbody>
+          </table>
+        </div>
+      </div>
+
+      <div class="section-title">
         <h2>Gastos mensuales</h2>
         <button id="addPlannedExpenseBtn" class="text-btn">+ Agregar</button>
       </div>

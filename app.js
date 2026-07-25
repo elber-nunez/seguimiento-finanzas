@@ -108,6 +108,7 @@ function renderAll(){
   ensureMonth();
   renderHeader();
   renderSummary();
+  renderDashboardCharts();
   renderExpenses();
   renderIncomes();
   renderHistory();
@@ -167,6 +168,70 @@ function expenseRow(item){
     </div>
     <div class="check-amount">${money(item.amount)}</div>
   </article>`;
+}
+
+
+function renderDashboardCharts(){
+  const data = totals();
+  const values = [
+    {label:"Ingresos", value:data.totalIncome, cls:"income"},
+    {label:"Gastos previstos", value:data.plannedExpenses, cls:"planned"},
+    {label:"Gastos pagados", value:data.paidExpenses, cls:"paid"},
+    {label:"Saldo esperado", value:Math.max(0,data.expectedBalance), cls:"expected"}
+  ];
+  const maxValue = Math.max(...values.map(item=>item.value),1);
+
+  $("summaryBars").innerHTML = values.map(item=>`
+    <div class="bar-row">
+      <span>${item.label}</span>
+      <div class="bar-track"><i class="bar-fill ${item.cls}" style="width:${Math.max(item.value>0?3:0,(item.value/maxValue)*100)}%"></i></div>
+      <strong>${money(item.value)}</strong>
+    </div>
+  `).join("");
+
+  const paidPct = data.plannedExpenses ? Math.min(100,(data.paidExpenses/data.plannedExpenses)*100) : 0;
+  $("donutPct").textContent = `${paidPct.toFixed(0)}%`;
+  $("budgetDonut").style.background = `conic-gradient(#16a34a 0deg ${paidPct*3.6}deg,#e2e8f0 ${paidPct*3.6}deg 360deg)`;
+
+  const pending = Math.max(0,data.plannedExpenses-data.paidExpenses);
+  $("budgetLegend").innerHTML = `
+    <div class="legend-row"><i class="legend-dot paid"></i><span>Gastos pagados</span><strong>${money(data.paidExpenses)}</strong></div>
+    <div class="legend-row"><i class="legend-dot pending"></i><span>Gastos pendientes</span><strong>${money(pending)}</strong></div>
+    <div class="legend-row"><i class="legend-dot balance"></i><span>Saldo esperado</span><strong>${money(data.expectedBalance)}</strong></div>
+  `;
+
+  const categoryMap = {};
+  profileData(selectedProfile).expenses.forEach(item=>{
+    categoryMap[item.category] = (categoryMap[item.category] || 0) + Number(item.amount||0);
+  });
+  const categories = Object.entries(categoryMap).sort((a,b)=>b[1]-a[1]);
+  const maxCategory = categories.length ? categories[0][1] : 1;
+  $("categoryBars").innerHTML = categories.length ? categories.map(([name,value])=>`
+    <div class="category-row">
+      <div class="category-name" title="${escapeHtml(name)}">${escapeHtml(name)}</div>
+      <div class="category-track"><span class="category-fill" style="width:${Math.max(3,(value/maxCategory)*100)}%"></span></div>
+      <div class="category-value">${money(value)}</div>
+    </div>
+  `).join("") : '<div class="empty">Agrega gastos para ver la distribución por categoría.</div>';
+
+  $("generalTableCard").style.display = selectedProfile==="general" ? "block" : "none";
+  if(selectedProfile==="general"){
+    const elber = totals("elber");
+    const mayra = totals("mayra");
+    const total = totals("general");
+    const row = (name,item,isTotal=false) => {
+      const pendingAmount = Math.max(0,item.plannedExpenses-item.paidExpenses);
+      return `<tr>
+        <td>${name}</td>
+        <td>${money(item.totalIncome)}</td>
+        <td>${money(item.paidExpenses)}</td>
+        <td>${money(pendingAmount)}</td>
+        <td class="${item.currentAvailable>=0?"value-good":"value-bad"}">${money(item.currentAvailable)}</td>
+        <td class="${item.expectedBalance>=0?"value-good":"value-bad"}">${money(item.expectedBalance)}</td>
+      </tr>`;
+    };
+    $("generalSummaryTable").innerHTML = row("Elber",elber)+row("Mayra",mayra)+row("General",total,true);
+  }
 }
 
 function renderExpenses(){

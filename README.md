@@ -22,3 +22,11 @@ Esta versión cambia el funcionamiento para adaptarse al presupuesto mensual rea
 ## Datos
 
 Todavía se guardan con `localStorage`. La próxima etapa será conectar Firebase para que Elber y Mayra compartan los mismos datos desde diferentes dispositivos.
+
+
+## Dashboards agregados en la versión 4
+
+- Barras comparativas de ingresos, gastos previstos, gastos pagados y saldo esperado.
+- Gráfico circular del avance de gastos pagados.
+- Distribución de gastos por categoría.
+- Tabla comparativa completa entre Elber, Mayra y el consolidado General.
