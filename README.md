@@ -1,26 +1,24 @@
-# Finanzas de Elber y Mayra
+# Finanzas de Elber y Mayra — versión 3
 
-Web sencilla para registrar y revisar el presupuesto mensual de dos personas.
+Esta versión cambia el funcionamiento para adaptarse al presupuesto mensual real:
 
-## Vistas
-
-- **Elber:** muestra únicamente sus ingresos, gastos y presupuesto.
-- **Mayra:** muestra únicamente sus ingresos, gastos y presupuesto.
-- **General:** combina la información de ambos y presenta una comparación.
+- Registro de ingresos del mes.
+- Lista de gastos mensuales planificados.
+- Cada gasto tiene una palomita para marcarlo como realizado.
+- Al marcar un gasto, el disponible actual se reduce.
+- Se calcula la expectativa de saldo al finalizar el mes.
+- Los gastos particulares se agregan ya marcados como realizados.
+- Vistas independientes para Elber y Mayra.
+- Vista General que combina ambos perfiles.
+- Selector desplegable en la barra superior.
 
 ## Archivos
 
-- `index.html`: estructura de la web.
-- `styles.css`: diseño adaptable a computadora y celular.
-- `app.js`: navegación, cálculos y almacenamiento local.
+- `index.html`
+- `styles.css`
+- `app.js`
+- `README.md`
 
-## Estado actual
+## Datos
 
-Los datos se guardan temporalmente en `localStorage`, por lo que todavía no se sincronizan entre dispositivos. La siguiente etapa será conectar Firebase para inicio de sesión y datos compartidos.
-
-## Publicación
-
-GitHub Pages debe publicar desde:
-
-- Rama: `main`
-- Carpeta: `/ (root)`
+Todavía se guardan con `localStorage`. La próxima etapa será conectar Firebase para que Elber y Mayra compartan los mismos datos desde diferentes dispositivos.

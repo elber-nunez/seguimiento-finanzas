@@ -1,365 +1,422 @@
-const KEY = "finanzas_elber_mayra_v2";
-const OLD_KEY = "mis_finanzas_mobile_v1";
+const STORAGE_KEY = "finanzas_elber_mayra_v3";
 const MONTHS = ["Enero","Febrero","Marzo","Abril","Mayo","Junio","Julio","Agosto","Septiembre","Octubre","Noviembre","Diciembre"];
 const NAMES = {general:"General", elber:"Elber", mayra:"Mayra"};
-const CATEGORIES = {
-  income:["Sueldo","Ingresos extra","Gratificación / CTS","Otros ingresos"],
-  expense:["Alimentación","Frutas","Transporte","Salidas","Mascotas","Servicios del hogar","Combustible / GNV","Gastos extras","Streaming","Celulares","Internet","Deudas / cuotas","Familia","Regalos","Educación","Ahorro / inversión","Salud","Otros"]
-};
+const EXPENSE_CATEGORIES = ["Alimentación","Frutas","Transporte","Servicios del hogar","Internet","Luz","Agua","Celulares","Mascotas","Combustible / GNV","Deudas / cuotas","Salidas","Streaming","Familia","Educación","Salud","Otros"];
 
 let state = loadState();
-let selectedProfile = state.ui?.selectedProfile || "elber";
-let entryType = "expense";
+let selectedProfile = state.ui.selectedProfile || "elber";
+
+const $ = id => document.getElementById(id);
+const money = value => new Intl.NumberFormat("es-PE",{style:"currency",currency:"PEN"}).format(Number(value || 0));
+const escapeHtml = (value="") => String(value).replace(/[&<>'"]/g,char=>({"&":"&amp;","<":"&lt;",">":"&gt;","'":"&#39;",'"':"&quot;"}[char]));
 
 function defaultState(){
   return {
-    settings:{currentUser:"elber",savingPercent:20,initialBalances:{elber:2750,mayra:0}},
-    entries:[],
+    settings:{currentUser:"elber"},
+    months:{},
     ui:{selectedProfile:"elber"}
   };
 }
 
 function loadState(){
   try{
-    const current = JSON.parse(localStorage.getItem(KEY));
-    if(current) return normalizeState(current);
-
-    const old = JSON.parse(localStorage.getItem(OLD_KEY));
-    if(old){
-      const migrated = defaultState();
-      migrated.settings.savingPercent = old.settings?.savingPercent ?? 20;
-      migrated.settings.initialBalances.elber = old.settings?.initialBalance ?? 2750;
-      migrated.entries = (old.entries || []).map(e => ({...e, owner:"elber", createdBy:"elber"}));
-      localStorage.setItem(KEY,JSON.stringify(migrated));
-      return migrated;
-    }
-  }catch(error){ console.warn("No se pudieron cargar los datos", error); }
+    const saved = JSON.parse(localStorage.getItem(STORAGE_KEY));
+    if(saved) return saved;
+  }catch(error){ console.warn(error); }
   return defaultState();
-}
-
-function normalizeState(value){
-  const base = defaultState();
-  return {
-    settings:{
-      currentUser:value.settings?.currentUser || base.settings.currentUser,
-      savingPercent:Number(value.settings?.savingPercent ?? base.settings.savingPercent),
-      initialBalances:{
-        elber:Number(value.settings?.initialBalances?.elber ?? 2750),
-        mayra:Number(value.settings?.initialBalances?.mayra ?? 0)
-      }
-    },
-    entries:(value.entries || []).map(e=>({...e,owner:e.owner || "elber",createdBy:e.createdBy || e.owner || "elber"})),
-    ui:{selectedProfile:value.ui?.selectedProfile || "elber"}
-  };
 }
 
 function saveState(){
   state.ui.selectedProfile = selectedProfile;
-  localStorage.setItem(KEY,JSON.stringify(state));
+  localStorage.setItem(STORAGE_KEY,JSON.stringify(state));
   renderAll();
 }
 
-const $ = id => document.getElementById(id);
-const money = value => new Intl.NumberFormat("es-PE",{style:"currency",currency:"PEN"}).format(Number(value || 0));
-const escapeHtml = (value="") => String(value).replace(/[&<>'"]/g,char=>({"&":"&amp;","<":"&lt;",">":"&gt;","'":"&#39;",'"':"&quot;"}[char]));
-const formatDate = value => new Date(value+"T00:00:00").toLocaleDateString("es-PE",{day:"2-digit",month:"short"});
-
-function selectedPeriod(){
-  return {month:Number($("monthPicker").value),year:Number($("yearPicker").value)};
+function periodKey(){
+  return `${$("yearPicker").value}-${String(Number($("monthPicker").value)+1).padStart(2,"0")}`;
 }
 
-function periodEntries(profile=selectedProfile){
-  const period=selectedPeriod();
-  return state.entries.filter(entry=>{
-    const date=new Date(entry.date+"T00:00:00");
-    const correctPeriod=date.getMonth()===period.month && date.getFullYear()===period.year;
-    const correctProfile=profile==="general" || entry.owner===profile;
-    return correctPeriod && correctProfile;
-  });
+function ensureMonth(){
+  const key = periodKey();
+  if(!state.months[key]){
+    state.months[key] = {
+      elber:{incomes:[],expenses:[]},
+      mayra:{incomes:[],expenses:[]}
+    };
+  }
+  return state.months[key];
+}
+
+function profileData(profile){
+  const month = ensureMonth();
+  if(profile === "general"){
+    return {
+      incomes:[...month.elber.incomes,...month.mayra.incomes],
+      expenses:[...month.elber.expenses,...month.mayra.expenses]
+    };
+  }
+  return month[profile];
 }
 
 function totals(profile=selectedProfile){
-  const entries=periodEntries(profile);
-  const sum=(type,key)=>entries.filter(e=>e.type===type).reduce((acc,e)=>acc+Number(e[key]||0),0);
+  const data = profileData(profile);
+  const totalIncome = data.incomes.reduce((sum,item)=>sum+Number(item.amount||0),0);
+  const plannedExpenses = data.expenses.reduce((sum,item)=>sum+Number(item.amount||0),0);
+  const paidExpenses = data.expenses.filter(item=>item.paid).reduce((sum,item)=>sum+Number(item.amount||0),0);
   return {
-    incomePlanned:sum("income","planned"), incomeActual:sum("income","actual"),
-    expensePlanned:sum("expense","planned"), expenseActual:sum("expense","actual")
+    totalIncome,
+    plannedExpenses,
+    paidExpenses,
+    currentAvailable: totalIncome-paidExpenses,
+    expectedBalance: totalIncome-plannedExpenses,
+    paidCount:data.expenses.filter(item=>item.paid).length,
+    expenseCount:data.expenses.length,
+    incomeCount:data.incomes.length
   };
 }
 
-function initialBalance(profile=selectedProfile){
-  if(profile==="general") return state.settings.initialBalances.elber + state.settings.initialBalances.mayra;
-  return state.settings.initialBalances[profile] || 0;
-}
-
-function initPickers(){
-  const now=new Date();
-  $("monthPicker").innerHTML=MONTHS.map((month,index)=>`<option value="${index}">${month}</option>`).join("");
-  $("monthPicker").value=now.getMonth();
+function init(){
+  const now = new Date();
+  $("monthPicker").innerHTML = MONTHS.map((month,index)=>`<option value="${index}">${month}</option>`).join("");
+  $("monthPicker").value = now.getMonth();
 
   const years=[];
-  for(let year=now.getFullYear()-3;year<=now.getFullYear()+3;year++) years.push(`<option value="${year}">${year}</option>`);
-  $("yearPicker").innerHTML=years.join("");
-  $("yearPicker").value=now.getFullYear();
+  for(let year=now.getFullYear()-2;year<=now.getFullYear()+2;year++) years.push(`<option value="${year}">${year}</option>`);
+  $("yearPicker").innerHTML = years.join("");
+  $("yearPicker").value = now.getFullYear();
 
-  $("monthPicker").onchange=renderAll;
-  $("yearPicker").onchange=renderAll;
-}
+  const categoryOptions = EXPENSE_CATEGORIES.map(category=>`<option>${category}</option>`).join("");
+  $("expenseCategory").innerHTML = categoryOptions;
+  $("extraCategory").innerHTML = categoryOptions;
 
-function selectProfile(profile){
-  selectedProfile=profile;
-  document.querySelectorAll("[data-profile]").forEach(button=>button.classList.toggle("active",button.dataset.profile===profile));
+  $("profileSelect").value = selectedProfile;
+  $("currentUserInput").value = state.settings.currentUser;
+
+  $("monthPicker").onchange = renderAll;
+  $("yearPicker").onchange = renderAll;
+  $("profileSelect").onchange = event => {
+    selectedProfile = event.target.value;
+    saveState();
+  };
+
+  bindNavigation();
+  bindForms();
   renderAll();
 }
 
 function renderAll(){
+  ensureMonth();
   renderHeader();
-  renderDashboard();
-  renderMovements();
-  renderBudgets();
-  renderSettings();
+  renderSummary();
+  renderExpenses();
+  renderIncomes();
+  renderHistory();
+  $("currentUserInput").value = state.settings.currentUser;
 }
 
 function renderHeader(){
-  const label=NAMES[selectedProfile];
-  $("welcomeText").textContent=selectedProfile==="general" ? "Resumen conjunto de Elber y Mayra" : `Resumen de ${label}`;
-  $("heroLabel").textContent=selectedProfile==="general" ? "Disponible general al cierre del mes" : `Disponible de ${label} al cierre del mes`;
-  document.querySelectorAll("[data-profile]").forEach(button=>button.classList.toggle("active",button.dataset.profile===selectedProfile));
+  $("profileSelect").value = selectedProfile;
+  $("periodText").textContent = `${MONTHS[Number($("monthPicker").value)]} ${$("yearPicker").value}`;
 }
 
-function renderDashboard(){
-  const data=totals();
-  const result=data.incomeActual-data.expenseActual;
-  const balance=initialBalance()+result;
-  const margin=data.incomeActual ? result/data.incomeActual*100 : 0;
-  const savingGoal=data.incomeActual*state.settings.savingPercent/100;
+function renderSummary(){
+  const data = totals();
+  $("currentAvailable").textContent = money(data.currentAvailable);
+  $("totalIncome").textContent = money(data.totalIncome);
+  $("plannedExpenses").textContent = money(data.plannedExpenses);
+  $("paidExpenses").textContent = money(data.paidExpenses);
+  $("expectedBalance").textContent = money(data.expectedBalance);
 
-  $("balanceValue").textContent=money(balance);
-  $("balanceStatus").textContent=result>=0 ? "Presupuesto saludable" : "Gastos mayores que ingresos";
-  $("balanceStatus").className=`status ${result>=0?"good":"bad"}`;
+  $("incomeCount").textContent = `${data.incomeCount} ingreso${data.incomeCount===1?"":"s"} registrado${data.incomeCount===1?"":"s"}`;
+  $("plannedCount").textContent = `${data.expenseCount} gasto${data.expenseCount===1?"":"s"} mensual${data.expenseCount===1?"":"es"}`;
+  $("paidCount").textContent = `${data.paidCount} gasto${data.paidCount===1?"":"s"} marcado${data.paidCount===1?"":"s"}`;
 
-  $("incomeReal").textContent=money(data.incomeActual);
-  $("incomePlan").textContent=`Previsto: ${money(data.incomePlanned)}`;
-  $("expenseReal").textContent=money(data.expenseActual);
-  $("expensePlan").textContent=`Previsto: ${money(data.expensePlanned)}`;
-  $("resultValue").textContent=money(result);
-  $("resultValue").style.color=result>=0?"var(--green)":"var(--red)";
-  $("marginValue").textContent=`${margin.toFixed(1)}%`;
-  $("savingGoalStatus").textContent=result>=savingGoal ? `Meta de ${state.settings.savingPercent}% alcanzada` : `Meta: ${money(savingGoal)}`;
+  const healthy = data.currentAvailable >= 0;
+  $("currentStatus").textContent = healthy ? "Aún tienes saldo disponible" : "Tus gastos superaron tus ingresos";
+  $("currentStatus").className = `status ${healthy ? "good" : "bad"}`;
+  $("currentAvailable").style.color = healthy ? "#fff" : "#fecaca";
+  $("expectedBalance").style.color = data.expectedBalance >= 0 ? "var(--green)" : "var(--red)";
 
-  const pct=data.expensePlanned ? data.expenseActual/data.expensePlanned*100 : 0;
-  $("budgetPct").textContent=`${pct.toFixed(0)}%`;
-  $("budgetBar").style.width=`${Math.min(100,pct)}%`;
-  $("budgetBar").style.background=pct>100?"var(--red)":"var(--orange)";
-  $("budgetText").textContent=!data.expensePlanned
-    ? "Aún no hay presupuesto de gastos."
-    : pct>100
-      ? `Se excedió el presupuesto en ${money(data.expenseActual-data.expensePlanned)}.`
-      : `Quedan ${money(data.expensePlanned-data.expenseActual)} del presupuesto previsto.`;
+  const pct = data.plannedExpenses ? (data.paidExpenses/data.plannedExpenses)*100 : 0;
+  $("expenseProgressPct").textContent = `${pct.toFixed(0)}%`;
+  $("expenseProgressBar").style.width = `${Math.min(100,pct)}%`;
+  $("expenseProgressBar").style.background = pct > 100 ? "var(--red)" : "var(--orange)";
+  $("expenseProgressText").textContent = data.plannedExpenses
+    ? `Has gastado ${money(data.paidExpenses)} de ${money(data.plannedExpenses)} planificados.`
+    : "Aún no has registrado gastos mensuales.";
 
-  $("comparisonCard").style.display=selectedProfile==="general"?"block":"none";
-  if(selectedProfile==="general") renderComparison();
-  renderRecent();
+  $("generalComparison").style.display = selectedProfile === "general" ? "block" : "none";
+  if(selectedProfile === "general"){
+    const elber = totals("elber");
+    const mayra = totals("mayra");
+    $("elberAvailable").textContent = money(elber.currentAvailable);
+    $("elberAvailable").style.color = elber.currentAvailable>=0 ? "var(--green)" : "var(--red)";
+    $("elberDetail").textContent = `Ingresos ${money(elber.totalIncome)} · Gastado ${money(elber.paidExpenses)}`;
+    $("mayraAvailable").textContent = money(mayra.currentAvailable);
+    $("mayraAvailable").style.color = mayra.currentAvailable>=0 ? "var(--green)" : "var(--red)";
+    $("mayraDetail").textContent = `Ingresos ${money(mayra.totalIncome)} · Gastado ${money(mayra.paidExpenses)}`;
+  }
 }
 
-function renderComparison(){
-  const elber=totals("elber"), mayra=totals("mayra");
-  const er=elber.incomeActual-elber.expenseActual, mr=mayra.incomeActual-mayra.expenseActual;
-  $("elberResult").textContent=money(er);
-  $("elberResult").style.color=er>=0?"var(--green)":"var(--red)";
-  $("elberSummary").textContent=`Ingresos ${money(elber.incomeActual)} · Gastos ${money(elber.expenseActual)}`;
-  $("mayraResult").textContent=money(mr);
-  $("mayraResult").style.color=mr>=0?"var(--green)":"var(--red)";
-  $("mayraSummary").textContent=`Ingresos ${money(mayra.incomeActual)} · Gastos ${money(mayra.expenseActual)}`;
-}
-
-function movementHTML(entry){
-  const over=entry.type==="expense" && Number(entry.actual)>Number(entry.planned);
-  return `<article class="item" data-edit-id="${entry.id}">
-    <div class="item-main">
-      <div class="item-title">${escapeHtml(entry.concept)} <span class="owner">${NAMES[entry.owner]}</span></div>
-      <div class="item-meta">${escapeHtml(entry.category)} · ${formatDate(entry.date)} ${over?'<span class="badge over">Sobre presupuesto</span>':""}</div>
+function expenseRow(item){
+  return `<article class="check-item ${item.paid?"paid":""}">
+    <input type="checkbox" data-toggle-expense="${item.id}" data-owner="${item.owner}" ${item.paid?"checked":""} aria-label="Marcar gasto">
+    <div class="check-main" data-edit-expense="${item.id}" data-owner="${item.owner}">
+      <div class="check-title">${escapeHtml(item.concept)} <span class="owner">${NAMES[item.owner]}</span> ${item.extra?'<span class="extra-badge">Particular</span>':""}</div>
+      <div class="check-meta">${escapeHtml(item.category)}</div>
     </div>
-    <div class="amount ${entry.type}">${entry.type==="income"?"+":"-"} ${money(entry.actual)}</div>
+    <div class="check-amount">${money(item.amount)}</div>
   </article>`;
 }
 
-function renderRecent(){
-  const entries=[...periodEntries()].sort((a,b)=>b.date.localeCompare(a.date)).slice(0,5);
-  $("recentList").innerHTML=entries.length ? entries.map(movementHTML).join("") : '<div class="empty">Aún no hay movimientos este mes.</div>';
-  bindEditEvents($("recentList"));
-}
+function renderExpenses(){
+  const expenses = [...profileData(selectedProfile).expenses].sort((a,b)=>Number(a.paid)-Number(b.paid));
+  $("expenseChecklist").innerHTML = expenses.length
+    ? expenses.map(expenseRow).join("")
+    : '<div class="empty">Aún no hay gastos planificados para este mes.</div>';
 
-function renderMovements(){
-  let entries=[...periodEntries()].sort((a,b)=>b.date.localeCompare(a.date));
-  const filter=$("typeFilter").value;
-  if(filter!=="all") entries=entries.filter(entry=>entry.type===filter);
-  $("movementList").innerHTML=entries.length ? entries.map(movementHTML).join("") : '<div class="empty">No hay movimientos para esta vista.</div>';
-  bindEditEvents($("movementList"));
-}
-
-function bindEditEvents(container){
-  container.querySelectorAll("[data-edit-id]").forEach(item=>item.onclick=()=>editEntry(item.dataset.editId));
-}
-
-function renderBudgets(){
-  const expenses=periodEntries().filter(entry=>entry.type==="expense");
-  const categories={};
-  expenses.forEach(entry=>{
-    categories[entry.category] ||= {planned:0,actual:0};
-    categories[entry.category].planned += Number(entry.planned||0);
-    categories[entry.category].actual += Number(entry.actual||0);
+  document.querySelectorAll("[data-toggle-expense]").forEach(check=>{
+    check.onchange = () => {
+      const owner = check.dataset.owner;
+      const item = ensureMonth()[owner].expenses.find(expense=>expense.id===check.dataset.toggleExpense);
+      if(item){ item.paid = check.checked; saveState(); }
+    };
   });
 
-  const list=Object.entries(categories).sort((a,b)=>b[1].actual-a[1].actual);
-  $("categoryBudgetList").innerHTML=list.length ? list.map(([category,values])=>{
-    const pct=values.planned ? values.actual/values.planned*100 : 0;
-    return `<article class="card">
-      <div class="row-between"><strong>${escapeHtml(category)}</strong><span class="badge ${pct>100?"over":"ok"}">${pct.toFixed(0)}%</span></div>
-      <small>Real ${money(values.actual)} · Previsto ${money(values.planned)}</small>
-      <div class="progress"><span style="width:${Math.min(100,pct)}%;background:${pct>100?"var(--red)":"var(--green)"}"></span></div>
-    </article>`;
-  }).join("") : '<div class="empty">Registra gastos para ver el presupuesto por categoría.</div>';
+  document.querySelectorAll("[data-edit-expense]").forEach(node=>{
+    node.onclick = () => openExpenseModal(node.dataset.editExpense,node.dataset.owner);
+  });
 }
 
-function renderSettings(){
-  $("currentUserInput").value=state.settings.currentUser;
-  $("elberInitialInput").value=state.settings.initialBalances.elber;
-  $("mayraInitialInput").value=state.settings.initialBalances.mayra;
-  $("savingPercentInput").value=state.settings.savingPercent;
+function incomeRow(item){
+  return `<article class="item" data-edit-income="${item.id}" data-owner="${item.owner}">
+    <div class="item-main">
+      <div class="item-title">${escapeHtml(item.concept)} <span class="owner">${NAMES[item.owner]}</span></div>
+      <div class="item-meta">Ingreso mensual</div>
+    </div>
+    <div class="amount income">+ ${money(item.amount)}</div>
+  </article>`;
 }
 
-function setType(type){
-  entryType=type;
-  $("incomeType").classList.toggle("active",type==="income");
-  $("expenseType").classList.toggle("active",type==="expense");
-  $("entryCategory").innerHTML=CATEGORIES[type].map(category=>`<option>${category}</option>`).join("");
+function renderIncomes(){
+  const incomes = profileData(selectedProfile).incomes;
+  $("incomeList").innerHTML = incomes.length
+    ? incomes.map(incomeRow).join("")
+    : '<div class="empty">Aún no hay ingresos registrados para este mes.</div>';
+
+  document.querySelectorAll("[data-edit-income]").forEach(node=>{
+    node.onclick = () => openIncomeModal(node.dataset.editIncome,node.dataset.owner);
+  });
 }
 
-function resetForm(){
-  $("formTitle").textContent="Nuevo movimiento";
-  $("entryId").value="";
-  $("entryOwner").value=selectedProfile==="general" ? state.settings.currentUser : selectedProfile;
-  $("entryDate").value=new Date().toISOString().slice(0,10);
-  $("entryConcept").value="";
-  $("entryPlanned").value="";
-  $("entryActual").value="";
-  $("entryNote").value="";
-  $("deleteEntryBtn").style.display="none";
-  setType("expense");
+function renderHistory(){
+  const incomes = profileData(selectedProfile).incomes.map(item=>({...item,type:"income"}));
+  const expenses = profileData(selectedProfile).expenses.filter(item=>item.paid).map(item=>({...item,type:"expense"}));
+  const history = [...incomes,...expenses];
+
+  $("historyList").innerHTML = history.length ? history.map(item=>`
+    <article class="item">
+      <div class="item-main">
+        <div class="item-title">${escapeHtml(item.concept)} <span class="owner">${NAMES[item.owner]}</span></div>
+        <div class="item-meta">${item.type==="income"?"Ingreso":"Gasto realizado"} · ${escapeHtml(item.category||"Ingreso")}</div>
+      </div>
+      <div class="amount ${item.type}">${item.type==="income"?"+":"-"} ${money(item.amount)}</div>
+    </article>
+  `).join("") : '<div class="empty">Aún no hay movimientos realizados.</div>';
 }
 
-function openModal(){
-  resetForm();
-  $("entryModal").classList.add("open");
+function modalOpen(id){ $(id).classList.add("open"); }
+function modalClose(id){ $(id).classList.remove("open"); }
+
+function defaultOwner(){
+  return selectedProfile==="general" ? state.settings.currentUser : selectedProfile;
 }
 
-function closeModal(){
-  $("entryModal").classList.remove("open");
-}
+function openIncomeModal(id=null,owner=null){
+  $("incomeForm").reset();
+  $("incomeId").value = id || "";
+  $("incomeOwner").value = owner || defaultOwner();
+  $("incomeFormTitle").textContent = id ? "Editar ingreso" : "Agregar ingreso";
+  $("deleteIncomeBtn").classList.toggle("hidden",!id);
 
-function editEntry(id){
-  const entry=state.entries.find(item=>item.id===id);
-  if(!entry) return;
-  resetForm();
-  $("formTitle").textContent="Editar movimiento";
-  $("entryId").value=entry.id;
-  $("entryOwner").value=entry.owner;
-  setType(entry.type);
-  $("entryDate").value=entry.date;
-  $("entryCategory").value=entry.category;
-  $("entryConcept").value=entry.concept;
-  $("entryPlanned").value=entry.planned;
-  $("entryActual").value=entry.actual;
-  $("entryNote").value=entry.note||"";
-  $("deleteEntryBtn").style.display="block";
-  $("entryModal").classList.add("open");
-}
-
-function seedData(){
-  const {year,month}=selectedPeriod();
-  const date=day=>new Date(year,month,day,12).toISOString().slice(0,10);
-  const rows=[
-    ["elber","income","Sueldo","Sueldo mensual",2980,2980],
-    ["elber","expense","Alimentación","Gastos comida",300,300],
-    ["elber","expense","Frutas","Gastos fruta",50,80],
-    ["elber","expense","Combustible / GNV","GNV",670,670],
-    ["elber","expense","Deudas / cuotas","Cuota mensual",230,230],
-    ["mayra","income","Sueldo","Sueldo mensual",2500,2500],
-    ["mayra","expense","Alimentación","Compras del hogar",350,320],
-    ["mayra","expense","Transporte","Pasajes",120,110],
-    ["mayra","expense","Celulares","Línea celular",66,66],
-    ["mayra","expense","Familia","Apoyo familiar",300,300]
-  ];
-  rows.forEach((row,index)=>state.entries.push({
-    id:crypto.randomUUID(),owner:row[0],createdBy:state.settings.currentUser,date:date(Math.min(index+1,28)),
-    type:row[1],category:row[2],concept:row[3],planned:row[4],actual:row[5],note:"Ejemplo editable"
-  }));
-  saveState();
-}
-
-function exportData(){
-  const blob=new Blob([JSON.stringify(state,null,2)],{type:"application/json"});
-  const link=document.createElement("a");
-  link.href=URL.createObjectURL(blob);
-  link.download="respaldo-finanzas-elber-mayra.json";
-  link.click();
-  URL.revokeObjectURL(link.href);
-}
-
-document.querySelectorAll("[data-profile]").forEach(button=>button.onclick=()=>selectProfile(button.dataset.profile));
-
-document.querySelectorAll("[data-page]").forEach(button=>button.onclick=()=>{
-  document.querySelectorAll(".page").forEach(page=>page.classList.remove("active"));
-  $(button.dataset.page).classList.add("active");
-  document.querySelectorAll(".bottom-nav button").forEach(nav=>nav.classList.toggle("active",nav.dataset.page===button.dataset.page));
-  window.scrollTo({top:0,behavior:"smooth"});
-});
-
-$("fab").onclick=openModal;
-$("entryModal").onclick=event=>{if(event.target===$("entryModal")) closeModal();};
-$("incomeType").onclick=()=>setType("income");
-$("expenseType").onclick=()=>setType("expense");
-$("typeFilter").onchange=renderMovements;
-$("exportBtn").onclick=exportData;
-
-$("entryForm").onsubmit=event=>{
-  event.preventDefault();
-  const id=$("entryId").value || crypto.randomUUID();
-  const entry={
-    id,
-    owner:$("entryOwner").value,
-    createdBy:state.settings.currentUser,
-    date:$("entryDate").value,
-    type:entryType,
-    category:$("entryCategory").value,
-    concept:$("entryConcept").value.trim(),
-    planned:Number($("entryPlanned").value),
-    actual:Number($("entryActual").value),
-    note:$("entryNote").value.trim()
-  };
-  const index=state.entries.findIndex(item=>item.id===id);
-  if(index>=0) entry.createdBy=state.entries[index].createdBy || state.settings.currentUser;
-  if(index>=0) state.entries[index]=entry; else state.entries.push(entry);
-  saveState();
-  closeModal();
-};
-
-$("deleteEntryBtn").onclick=()=>{
-  const id=$("entryId").value;
-  if(confirm("¿Eliminar este movimiento?")){
-    state.entries=state.entries.filter(entry=>entry.id!==id);
-    saveState();
-    closeModal();
+  if(id){
+    const item = ensureMonth()[owner].incomes.find(income=>income.id===id);
+    if(item){
+      $("incomeConcept").value = item.concept;
+      $("incomeAmount").value = item.amount;
+    }
   }
-};
+  modalOpen("incomeModal");
+}
 
-$("currentUserInput").onchange=event=>{state.settings.currentUser=event.target.value;saveState();};
-$("elberInitialInput").onchange=event=>{state.settings.initialBalances.elber=Number(event.target.value);saveState();};
-$("mayraInitialInput").onchange=event=>{state.settings.initialBalances.mayra=Number(event.target.value);saveState();};
-$("savingPercentInput").onchange=event=>{state.settings.savingPercent=Number(event.target.value);saveState();};
-$("seedBtn").onclick=()=>{if(confirm("¿Cargar datos de ejemplo para el mes seleccionado?")) seedData();};
-$("clearBtn").onclick=()=>{if(confirm("¿Borrar todos los datos guardados en este navegador?")){state=defaultState();selectedProfile="elber";saveState();}};
+function openExpenseModal(id=null,owner=null){
+  $("expenseForm").reset();
+  $("expenseId").value = id || "";
+  $("expenseOwner").value = owner || defaultOwner();
+  $("expenseFormTitle").textContent = id ? "Editar gasto mensual" : "Agregar gasto mensual";
+  $("deleteExpenseBtn").classList.toggle("hidden",!id);
 
-initPickers();
-selectProfile(selectedProfile);
+  if(id){
+    const item = ensureMonth()[owner].expenses.find(expense=>expense.id===id);
+    if(item){
+      $("expenseConcept").value = item.concept;
+      $("expenseCategory").value = item.category;
+      $("expenseAmount").value = item.amount;
+      $("expensePaid").checked = item.paid;
+    }
+  }
+  modalOpen("expenseModal");
+}
+
+function bindNavigation(){
+  document.querySelectorAll("[data-page]").forEach(button=>{
+    button.onclick = () => {
+      document.querySelectorAll(".page").forEach(page=>page.classList.remove("active"));
+      $(button.dataset.page).classList.add("active");
+      document.querySelectorAll(".bottom-nav button").forEach(nav=>nav.classList.toggle("active",nav.dataset.page===button.dataset.page));
+      window.scrollTo({top:0,behavior:"smooth"});
+    };
+  });
+}
+
+function bindForms(){
+  $("addIncomeBtn").onclick = ()=>openIncomeModal();
+  $("addPlannedExpenseBtn").onclick = ()=>openExpenseModal();
+  $("fab").onclick = () => {
+    $("extraForm").reset();
+    $("extraOwner").value = defaultOwner();
+    modalOpen("extraModal");
+  };
+
+  document.querySelectorAll(".modal").forEach(modal=>{
+    modal.onclick = event => { if(event.target===modal) modal.classList.remove("open"); };
+  });
+
+  $("incomeForm").onsubmit = event => {
+    event.preventDefault();
+    const id = $("incomeId").value || crypto.randomUUID();
+    const owner = $("incomeOwner").value;
+
+    for(const person of ["elber","mayra"]){
+      state.months[periodKey()][person].incomes = state.months[periodKey()][person].incomes.filter(item=>item.id!==id);
+    }
+
+    state.months[periodKey()][owner].incomes.push({
+      id, owner, concept:$("incomeConcept").value.trim(), amount:Number($("incomeAmount").value)
+    });
+    saveState();
+    modalClose("incomeModal");
+  };
+
+  $("expenseForm").onsubmit = event => {
+    event.preventDefault();
+    const id = $("expenseId").value || crypto.randomUUID();
+    const owner = $("expenseOwner").value;
+
+    for(const person of ["elber","mayra"]){
+      state.months[periodKey()][person].expenses = state.months[periodKey()][person].expenses.filter(item=>item.id!==id);
+    }
+
+    state.months[periodKey()][owner].expenses.push({
+      id, owner,
+      concept:$("expenseConcept").value.trim(),
+      category:$("expenseCategory").value,
+      amount:Number($("expenseAmount").value),
+      paid:$("expensePaid").checked,
+      extra:false
+    });
+    saveState();
+    modalClose("expenseModal");
+  };
+
+  $("extraForm").onsubmit = event => {
+    event.preventDefault();
+    const owner = $("extraOwner").value;
+    state.months[periodKey()][owner].expenses.push({
+      id:crypto.randomUUID(), owner,
+      concept:$("extraConcept").value.trim(),
+      category:$("extraCategory").value,
+      amount:Number($("extraAmount").value),
+      paid:true,
+      extra:true
+    });
+    saveState();
+    modalClose("extraModal");
+  };
+
+  $("deleteIncomeBtn").onclick = () => {
+    const id = $("incomeId").value;
+    if(confirm("¿Eliminar este ingreso?")){
+      for(const person of ["elber","mayra"]){
+        state.months[periodKey()][person].incomes = state.months[periodKey()][person].incomes.filter(item=>item.id!==id);
+      }
+      saveState();
+      modalClose("incomeModal");
+    }
+  };
+
+  $("deleteExpenseBtn").onclick = () => {
+    const id = $("expenseId").value;
+    if(confirm("¿Eliminar este gasto?")){
+      for(const person of ["elber","mayra"]){
+        state.months[periodKey()][person].expenses = state.months[periodKey()][person].expenses.filter(item=>item.id!==id);
+      }
+      saveState();
+      modalClose("expenseModal");
+    }
+  };
+
+  $("currentUserInput").onchange = event => {
+    state.settings.currentUser = event.target.value;
+    saveState();
+  };
+
+  $("seedBtn").onclick = () => {
+    if(!confirm("¿Cargar datos de ejemplo para el mes seleccionado?")) return;
+    const month = ensureMonth();
+    month.elber = {
+      incomes:[
+        {id:crypto.randomUUID(),owner:"elber",concept:"Sueldo",amount:2980},
+        {id:crypto.randomUUID(),owner:"elber",concept:"Trabajo externo",amount:1500}
+      ],
+      expenses:[
+        {id:crypto.randomUUID(),owner:"elber",concept:"Gastos comida",category:"Alimentación",amount:300,paid:false,extra:false},
+        {id:crypto.randomUUID(),owner:"elber",concept:"Frutas",category:"Frutas",amount:50,paid:false,extra:false},
+        {id:crypto.randomUUID(),owner:"elber",concept:"Internet",category:"Internet",amount:60,paid:true,extra:false},
+        {id:crypto.randomUUID(),owner:"elber",concept:"GNV",category:"Combustible / GNV",amount:670,paid:false,extra:false},
+        {id:crypto.randomUUID(),owner:"elber",concept:"Comida del perro",category:"Mascotas",amount:70,paid:false,extra:false}
+      ]
+    };
+    month.mayra = {
+      incomes:[
+        {id:crypto.randomUUID(),owner:"mayra",concept:"Sueldo",amount:2500}
+      ],
+      expenses:[
+        {id:crypto.randomUUID(),owner:"mayra",concept:"Agua",category:"Agua",amount:80,paid:true,extra:false},
+        {id:crypto.randomUUID(),owner:"mayra",concept:"Celular",category:"Celulares",amount:66,paid:false,extra:false},
+        {id:crypto.randomUUID(),owner:"mayra",concept:"Comida",category:"Alimentación",amount:350,paid:false,extra:false}
+      ]
+    };
+    saveState();
+  };
+
+  $("clearBtn").onclick = () => {
+    if(confirm("¿Borrar todos los datos guardados en este navegador?")){
+      state = defaultState();
+      selectedProfile = "elber";
+      localStorage.removeItem(STORAGE_KEY);
+      saveState();
+    }
+  };
+
+  $("exportBtn").onclick = () => {
+    const blob = new Blob([JSON.stringify(state,null,2)],{type:"application/json"});
+    const link = document.createElement("a");
+    link.href = URL.createObjectURL(blob);
+    link.download = "respaldo-finanzas-elber-mayra.json";
+    link.click();
+    URL.revokeObjectURL(link.href);
+  };
+}
+
+init();
