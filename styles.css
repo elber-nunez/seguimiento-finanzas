@@ -8,7 +8,7 @@ body{margin:0;background:var(--bg);color:var(--ink);font-family:Inter,system-ui,
 button,input,select{font:inherit}
 button{cursor:pointer}
 .app{max-width:1080px;min-height:100vh;margin:auto;padding-bottom:86px}
-.topbar{position:sticky;top:0;z-index:20;background:rgba(15,23,42,.97);color:#fff;padding:12px 14px;box-shadow:0 5px 20px rgba(15,23,42,.18)}
+.topbar{position:static;background:rgba(15,23,42,.97);color:#fff;padding:12px 14px;box-shadow:0 5px 20px rgba(15,23,42,.18)}
 .topbar-row{display:grid;grid-template-columns:1fr auto 1fr;align-items:center;gap:10px}
 .brand h1{margin:0;font-size:1.02rem}
 .brand p{margin:3px 0 0;color:#cbd5e1;font-size:.74rem}

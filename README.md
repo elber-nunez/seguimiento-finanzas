@@ -30,3 +30,10 @@ Todavía se guardan con `localStorage`. La próxima etapa será conectar Firebas
 - Gráfico circular del avance de gastos pagados.
 - Distribución de gastos por categoría.
 - Tabla comparativa completa entre Elber, Mayra y el consolidado General.
+
+
+## Versión 5
+
+- La barra superior ya no acompaña el desplazamiento.
+- Al bajar por la página, la barra desaparece normalmente.
+- Se incluyeron archivos de preparación para Firebase.
