@@ -1,0 +1,5 @@
+.modal{position:fixed;inset:0;z-index:80;display:none;place-items:center;padding:18px;background:rgba(15,23,42,.58)}.modal.open{display:grid}
+.modal-card{position:relative;width:min(500px,100%);max-height:92vh;overflow:auto;padding:24px;border-radius:22px;background:#fff;box-shadow:0 28px 70px rgba(0,0,0,.28)}
+.modal-card h2{margin-bottom:18px}.modal-close{position:absolute;top:12px;right:14px;border:0;background:none;color:var(--muted);font-size:1.7rem}
+.modal-card label{display:block;margin-bottom:13px;font-size:.78rem;font-weight:800;color:#334155}.modal-card input,.modal-card select{display:block;width:100%;margin-top:6px;padding:12px;border:1px solid #cbd5e1;border-radius:11px;background:#fff}
+.inline-check{display:flex!important;align-items:center;gap:9px}.inline-check input{width:20px!important;height:20px!important;margin:0!important}

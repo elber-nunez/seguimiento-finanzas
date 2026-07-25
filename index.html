@@ -1,0 +1,261 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <meta name="theme-color" content="#0f172a">
+  <title>Finanzas Elber y Mayra</title>
+  <link rel="stylesheet" href="css/styles.css">
+  <link rel="stylesheet" href="css/layout.css">
+  <link rel="stylesheet" href="css/dashboard.css">
+  <link rel="stylesheet" href="css/forms.css">
+</head>
+<body>
+  <section id="loginScreen" class="login-screen">
+    <div class="login-card">
+      <div class="login-logo">₠</div>
+      <h1>Finanzas Elber y Mayra</h1>
+      <p>Ingresa con una de las cuentas autorizadas para consultar y actualizar el presupuesto familiar.</p>
+      <button id="googleLoginBtn" class="google-btn" type="button">
+        <span>G</span> Ingresar con Google
+      </button>
+      <p id="loginMessage" class="form-message"></p>
+    </div>
+  </section>
+
+  <div id="appShell" class="app-shell hidden">
+    <aside class="sidebar">
+      <div class="sidebar-brand">
+        <strong>Finanzas</strong>
+        <span>Elber y Mayra</span>
+      </div>
+
+      <nav class="main-menu">
+        <button class="menu-item active" data-view="homeView"><span>⌂</span>Inicio</button>
+
+        <button id="budgetMenuButton" class="menu-item menu-parent" type="button">
+          <span>₠</span>Presupuesto mensual <b>⌄</b>
+        </button>
+        <div id="budgetSubmenu" class="submenu open">
+          <button data-view="incomeView">Ingresos</button>
+          <button data-view="fixedView">Gastos fijos</button>
+          <button data-view="variableView">Gastos variables</button>
+          <button data-view="summaryView">Resumen</button>
+        </div>
+
+        <button class="menu-item" data-view="dashboardView"><span>▦</span>Dashboard</button>
+        <button class="menu-item" data-view="historyView"><span>◷</span>Historial</button>
+        <button class="menu-item" data-view="settingsView"><span>⚙</span>Configuración</button>
+      </nav>
+    </aside>
+
+    <div class="content-shell">
+      <header class="topbar">
+        <button id="mobileMenuBtn" class="mobile-menu-btn" type="button">☰</button>
+
+        <div class="topbar-title">
+          <strong id="viewTitle">Inicio</strong>
+          <span id="syncStatus">Conectando…</span>
+        </div>
+
+        <div class="topbar-controls">
+          <select id="profileSelect" aria-label="Vista">
+            <option value="general">General</option>
+            <option value="elber">Elber</option>
+            <option value="mayra">Mayra</option>
+          </select>
+          <select id="monthPicker" aria-label="Mes"></select>
+          <select id="yearPicker" aria-label="Año"></select>
+        </div>
+
+        <button id="userButton" class="user-button" type="button" title="Cerrar sesión">
+          <img id="userPhoto" alt="">
+          <span id="userName"></span>
+        </button>
+      </header>
+
+      <main class="main-content">
+        <section id="homeView" class="view active">
+          <div class="page-heading">
+            <div><h1>Inicio</h1><p>Resumen rápido de la situación financiera del mes.</p></div>
+            <button id="quickExpenseBtn" class="primary-btn">+ Gasto variable</button>
+          </div>
+
+          <article class="hero-card">
+            <span>Disponible actualmente</span>
+            <strong id="homeAvailable">S/ 0,00</strong>
+            <small id="homeAvailableDetail">Ingresos menos gastos ya realizados</small>
+          </article>
+
+          <div class="kpi-grid">
+            <article class="kpi-card"><span>Ingresos</span><strong id="homeIncome">S/ 0,00</strong><small>Registrados este mes</small></article>
+            <article class="kpi-card"><span>Pagado</span><strong id="homePaid">S/ 0,00</strong><small>Fijos y variables realizados</small></article>
+            <article class="kpi-card"><span>Pendiente</span><strong id="homePending">S/ 0,00</strong><small>Gastos fijos sin marcar</small></article>
+            <article class="kpi-card"><span>Saldo esperado</span><strong id="homeExpected">S/ 0,00</strong><small>Proyección al cierre del mes</small></article>
+          </div>
+
+          <div class="two-column-layout">
+            <article class="panel">
+              <div class="panel-heading"><h2>Próximos gastos pendientes</h2><button data-view="fixedView">Ver gastos fijos</button></div>
+              <div id="homePendingList" class="item-list"></div>
+            </article>
+            <article class="panel">
+              <div class="panel-heading"><h2>Últimos movimientos</h2><button data-view="historyView">Ver historial</button></div>
+              <div id="homeRecentList" class="item-list"></div>
+            </article>
+          </div>
+        </section>
+
+        <section id="incomeView" class="view">
+          <div class="page-heading">
+            <div><h1>Ingresos</h1><p>Sueldo, trabajos externos, bonos y otros ingresos del mes.</p></div>
+            <button id="addIncomeBtn" class="primary-btn">+ Agregar ingreso</button>
+          </div>
+          <div class="section-total"><span>Total de ingresos</span><strong id="incomeTotal">S/ 0,00</strong></div>
+          <div id="incomeList" class="item-list large-list"></div>
+        </section>
+
+        <section id="fixedView" class="view">
+          <div class="page-heading">
+            <div><h1>Gastos fijos</h1><p>Planifica el mes y marca cada pago cuando lo realices.</p></div>
+            <button id="addFixedBtn" class="primary-btn">+ Agregar gasto fijo</button>
+          </div>
+          <div class="mini-kpis">
+            <div><span>Planificado</span><strong id="fixedPlanned">S/ 0,00</strong></div>
+            <div><span>Pagado</span><strong id="fixedPaid">S/ 0,00</strong></div>
+            <div><span>Pendiente</span><strong id="fixedPending">S/ 0,00</strong></div>
+          </div>
+          <div id="fixedList" class="check-list"></div>
+        </section>
+
+        <section id="variableView" class="view">
+          <div class="page-heading">
+            <div><h1>Gastos variables</h1><p>Compras o pagos no contemplados inicialmente.</p></div>
+            <button id="addVariableBtn" class="primary-btn">+ Agregar gasto variable</button>
+          </div>
+          <div class="section-total"><span>Total de gastos variables</span><strong id="variableTotal">S/ 0,00</strong></div>
+          <div id="variableList" class="item-list large-list"></div>
+        </section>
+
+        <section id="summaryView" class="view">
+          <div class="page-heading"><div><h1>Resumen mensual</h1><p>Planificación completa del mes seleccionado.</p></div></div>
+          <div class="summary-grid">
+            <article><span>Ingresos</span><strong id="summaryIncome">S/ 0,00</strong></article>
+            <article><span>Gastos fijos previstos</span><strong id="summaryFixed">S/ 0,00</strong></article>
+            <article><span>Gastos variables</span><strong id="summaryVariable">S/ 0,00</strong></article>
+            <article><span>Gastos realizados</span><strong id="summaryPaid">S/ 0,00</strong></article>
+            <article><span>Gastos pendientes</span><strong id="summaryPending">S/ 0,00</strong></article>
+            <article><span>Disponible hoy</span><strong id="summaryAvailable">S/ 0,00</strong></article>
+            <article class="highlight"><span>Saldo esperado fin de mes</span><strong id="summaryExpected">S/ 0,00</strong></article>
+          </div>
+        </section>
+
+        <section id="dashboardView" class="view">
+          <div class="page-heading"><div><h1>Dashboard</h1><p>Indicadores visuales de la vista y el mes seleccionados.</p></div></div>
+          <div class="dashboard-grid">
+            <article class="panel">
+              <h2>Ingresos y gastos</h2>
+              <div id="dashboardBars" class="bar-chart"></div>
+            </article>
+            <article class="panel">
+              <h2>Avance de pagos</h2>
+              <div class="donut-wrap">
+                <div id="dashboardDonut" class="donut"><div><strong id="dashboardPct">0%</strong><span>pagado</span></div></div>
+                <div id="dashboardLegend" class="chart-legend"></div>
+              </div>
+            </article>
+          </div>
+          <article class="panel dashboard-panel">
+            <h2>Gastos por categoría</h2>
+            <div id="categoryChart" class="category-chart"></div>
+          </article>
+          <article id="comparisonPanel" class="panel dashboard-panel hidden">
+            <h2>Comparación Elber y Mayra</h2>
+            <div class="table-scroll">
+              <table>
+                <thead><tr><th>Persona</th><th>Ingresos</th><th>Gastado</th><th>Pendiente</th><th>Disponible</th><th>Saldo esperado</th></tr></thead>
+                <tbody id="comparisonTable"></tbody>
+              </table>
+            </div>
+          </article>
+        </section>
+
+        <section id="historyView" class="view">
+          <div class="page-heading"><div><h1>Historial</h1><p>Movimientos realizados durante el mes.</p></div></div>
+          <div class="filter-bar">
+            <select id="historyTypeFilter">
+              <option value="all">Ingresos y gastos</option>
+              <option value="income">Solo ingresos</option>
+              <option value="expense">Solo gastos</option>
+            </select>
+            <select id="historyCategoryFilter"><option value="all">Todas las categorías</option></select>
+          </div>
+          <div id="historyList" class="item-list large-list"></div>
+        </section>
+
+        <section id="settingsView" class="view">
+          <div class="page-heading"><div><h1>Configuración</h1><p>Cuenta conectada y herramientas del presupuesto.</p></div></div>
+          <article class="settings-card">
+            <div class="setting-row">
+              <div><strong>Cuenta conectada</strong><small id="connectedEmail"></small></div>
+              <button id="logoutBtn" class="secondary-btn">Cerrar sesión</button>
+            </div>
+            <div class="setting-row">
+              <div><strong>Copiar presupuesto del mes anterior</strong><small>Copia ingresos y gastos fijos sin marcarlos como pagados.</small></div>
+              <button id="copyPreviousBtn" class="secondary-btn">Copiar</button>
+            </div>
+            <div class="setting-row">
+              <div><strong>Reiniciar mes actual</strong><small>Elimina los datos de Elber y Mayra del mes seleccionado.</small></div>
+              <button id="resetMonthBtn" class="danger-btn">Reiniciar</button>
+            </div>
+          </article>
+        </section>
+      </main>
+    </div>
+  </div>
+
+  <div id="formModal" class="modal">
+    <div class="modal-card">
+      <button id="closeModalBtn" class="modal-close">×</button>
+      <h2 id="modalTitle">Nuevo registro</h2>
+      <form id="recordForm">
+        <input id="recordId" type="hidden">
+        <input id="recordKind" type="hidden">
+
+        <label>Responsable
+          <select id="recordOwner">
+            <option value="elber">Elber</option>
+            <option value="mayra">Mayra</option>
+          </select>
+        </label>
+
+        <label>Concepto
+          <input id="recordConcept" type="text" required>
+        </label>
+
+        <label id="categoryField">Categoría
+          <select id="recordCategory"></select>
+        </label>
+
+        <label>Monto
+          <input id="recordAmount" type="number" min="0" step="0.01" required>
+        </label>
+
+        <label id="dateField">Fecha
+          <input id="recordDate" type="date" required>
+        </label>
+
+        <label id="paidField" class="inline-check">
+          <input id="recordPaid" type="checkbox">
+          Marcar como pagado
+        </label>
+
+        <button class="primary-btn full-btn" type="submit">Guardar</button>
+        <button id="deleteRecordBtn" class="danger-btn full-btn hidden" type="button">Eliminar</button>
+      </form>
+    </div>
+  </div>
+
+  <script type="module" src="js/app.js"></script>
+</body>
+</html>
