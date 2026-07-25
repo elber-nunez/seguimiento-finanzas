@@ -1,23 +1,26 @@
-# Dashboard de Finanzas Personales
+# Finanzas de Elber y Mayra
 
-Aplicación web estática para registrar ingresos, gastos y presupuesto mensual desde computadora o celular.
+Web sencilla para registrar y revisar el presupuesto mensual de dos personas.
+
+## Vistas
+
+- **Elber:** muestra únicamente sus ingresos, gastos y presupuesto.
+- **Mayra:** muestra únicamente sus ingresos, gastos y presupuesto.
+- **General:** combina la información de ambos y presenta una comparación.
+
+## Archivos
+
+- `index.html`: estructura de la web.
+- `styles.css`: diseño adaptable a computadora y celular.
+- `app.js`: navegación, cálculos y almacenamiento local.
+
+## Estado actual
+
+Los datos se guardan temporalmente en `localStorage`, por lo que todavía no se sincronizan entre dispositivos. La siguiente etapa será conectar Firebase para inicio de sesión y datos compartidos.
 
 ## Publicación
 
-### GitHub Pages
-1. Sube los archivos a la rama `main`.
-2. Ve a **Settings > Pages**.
-3. En **Build and deployment**, selecciona **Deploy from a branch**.
-4. Elige `main` y la carpeta `/ (root)`.
-5. Guarda los cambios.
+GitHub Pages debe publicar desde:
 
-### Cloudflare Pages
-1. Conecta este repositorio desde Cloudflare Pages.
-2. Selecciona la rama `main`.
-3. Framework preset: `None`.
-4. Build command: dejar vacío.
-5. Build output directory: `/`.
-
-## Almacenamiento de datos
-
-Los registros se guardan localmente en el navegador mediante `localStorage`. Los datos no se sincronizan automáticamente entre dispositivos ni navegadores.
+- Rama: `main`
+- Carpeta: `/ (root)`
