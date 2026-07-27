@@ -1,4 +1,4 @@
-# Finanzas Elber y Mayra — V19
+# Finanzas Elber y Mayra — V20
 
 Aplicación web familiar para registrar, planificar y analizar ingresos, gastos, préstamos, pensiones escolares y saldos mensuales.
 
@@ -371,7 +371,7 @@ Antes de usar la V18 como versión definitiva, conviene validar:
 
 ## Versión
 
-Versión actual: **V19**
+Versión actual: **V20**
 
 Nombre sugerido de commit:
 
@@ -429,3 +429,27 @@ Solicita:
 - Próximo mes de pago.
 
 El cronograma comienza usando el capital pendiente actual y no el capital original.
+
+
+## Versión 20 — resumen financiero simplificado
+
+La sección Resumen se reorganizó en tres bloques fáciles de interpretar:
+
+1. **Dinero que ingresa**
+   - Esperabas recibir.
+   - Ya recibiste.
+   - Porcentaje de avance de ingresos.
+
+2. **Dinero que sale**
+   - Planeas gastar.
+   - Ya pagaste.
+   - Falta pagar.
+   - Porcentaje de avance de pagos.
+
+3. **Tu situación actual**
+   - Disponible hoy.
+   - Saldo después de pagar todo lo pendiente.
+   - Saldo según la planificación.
+   - Mensaje automático que explica si el saldo es suficiente.
+
+La vista funciona igual para General, Elber y Mayra.

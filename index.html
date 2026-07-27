@@ -4,7 +4,7 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
   <meta name="theme-color" content="#0f172a">
-  <title>Finanzas - V19</title>
+  <title>Finanzas - V20</title>
   <link rel="stylesheet" href="css/styles.css">
   <link rel="stylesheet" href="css/layout.css">
   <link rel="stylesheet" href="css/dashboard.css">
@@ -27,7 +27,7 @@
     <aside class="sidebar">
       <div class="sidebar-brand">
         <strong>Finanzas</strong>
-        <span>Elber y Mayra · V19</span>
+        <span>Elber y Mayra · V20</span>
       </div>
 
       <nav class="main-menu">
@@ -170,19 +170,105 @@
 
         <section id="summaryView" class="view">
           <div class="page-heading">
-            <div><h1>Resumen financiero</h1><p>Planificación del mes seleccionado o del periodo anual habilitado.</p></div>
-            
+            <div>
+              <h1>Resumen financiero</h1>
+              <p>Una lectura sencilla de cuánto ingresó, cuánto se gastó y cuánto quedaría disponible.</p>
+            </div>
           </div>
+
           <p id="summaryPeriodNote" class="period-note"></p>
-          <div class="summary-grid">
-            <article><span>Ingresos previstos</span><strong id="summaryIncomePlanned">S/ 0,00</strong></article>
-            <article><span>Ingresos reales</span><strong id="summaryIncomeActual">S/ 0,00</strong></article>
-            <article><span>Gastos previstos</span><strong id="summaryExpensePlanned">S/ 0,00</strong></article>
-            <article><span>Gastos reales</span><strong id="summaryExpenseActual">S/ 0,00</strong></article>
-            <article><span>Gastos pendientes</span><strong id="summaryPending">S/ 0,00</strong></article>
-            <article><span>Saldo real actual</span><strong id="summaryAvailable">S/ 0,00</strong></article>
-            <article class="highlight"><span>Saldo previsto fin de mes</span><strong id="summaryExpected">S/ 0,00</strong></article>
-            <article class="highlight secondary-highlight"><span>Diferencia real vs previsto</span><strong id="summaryVariance">S/ 0,00</strong></article>
+
+          <div class="summary-clear-layout">
+            <article class="summary-group income-group">
+              <div class="summary-group-title">
+                <span class="summary-icon">↓</span>
+                <div>
+                  <h2>Dinero que ingresa</h2>
+                  <p>Lo planificado frente a lo que realmente recibiste.</p>
+                </div>
+              </div>
+              <div class="summary-pair">
+                <div>
+                  <span>Esperabas recibir</span>
+                  <strong id="summaryIncomePlanned">S/ 0,00</strong>
+                  <small>Ingresos previstos</small>
+                </div>
+                <div class="summary-main-value">
+                  <span>Ya recibiste</span>
+                  <strong id="summaryIncomeActual">S/ 0,00</strong>
+                  <small>Ingresos reales</small>
+                </div>
+              </div>
+              <div class="summary-progress">
+                <div><span>Avance de ingresos</span><strong id="summaryIncomePct">0%</strong></div>
+                <progress id="summaryIncomeProgress" max="100" value="0"></progress>
+              </div>
+            </article>
+
+            <article class="summary-group expense-group">
+              <div class="summary-group-title">
+                <span class="summary-icon">↑</span>
+                <div>
+                  <h2>Dinero que sale</h2>
+                  <p>Gastos planificados, pagados y todavía pendientes.</p>
+                </div>
+              </div>
+              <div class="summary-triple">
+                <div>
+                  <span>Planeas gastar</span>
+                  <strong id="summaryExpensePlanned">S/ 0,00</strong>
+                  <small>Total previsto</small>
+                </div>
+                <div>
+                  <span>Ya pagaste</span>
+                  <strong id="summaryExpenseActual">S/ 0,00</strong>
+                  <small>Gasto real</small>
+                </div>
+                <div class="pending-box">
+                  <span>Falta pagar</span>
+                  <strong id="summaryPending">S/ 0,00</strong>
+                  <small>Compromisos pendientes</small>
+                </div>
+              </div>
+              <div class="summary-progress">
+                <div><span>Avance de pagos</span><strong id="summaryExpensePct">0%</strong></div>
+                <progress id="summaryExpenseProgress" max="100" value="0"></progress>
+              </div>
+            </article>
+
+            <article class="summary-result-card">
+              <div class="summary-result-heading">
+                <div>
+                  <span>Tu situación actual</span>
+                  <h2>¿Cuánto dinero queda?</h2>
+                </div>
+                <span id="summaryHealthBadge" class="summary-health-badge">Sin movimientos</span>
+              </div>
+
+              <div class="summary-result-grid">
+                <div class="available-now">
+                  <span>Disponible hoy</span>
+                  <strong id="summaryAvailable">S/ 0,00</strong>
+                  <small>Ingresos reales menos pagos realizados</small>
+                </div>
+                <div>
+                  <span>Si pagas todo lo pendiente</span>
+                  <strong id="summaryAfterPending">S/ 0,00</strong>
+                  <small>Saldo real luego de cubrir compromisos</small>
+                </div>
+                <div>
+                  <span>Saldo según tu planificación</span>
+                  <strong id="summaryExpected">S/ 0,00</strong>
+                  <small>Ingresos previstos menos gastos previstos</small>
+                </div>
+              </div>
+
+              <div class="summary-explanation">
+                <strong id="summaryMessage">Todavía no hay información suficiente.</strong>
+                <span id="summaryVarianceText">Diferencia frente al plan: S/ 0,00</span>
+                <strong id="summaryVariance" class="hidden">S/ 0,00</strong>
+              </div>
+            </article>
           </div>
         </section>
 

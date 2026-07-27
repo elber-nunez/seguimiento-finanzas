@@ -431,6 +431,7 @@ function renderVariable() {
 function renderSummary() {
   const totals = calculateTotals(state,selectedPeriodKeys(),selectedProfile);
   $("summaryPeriodNote").textContent=periodNote();
+
   $("summaryIncomePlanned").textContent=money(totals.incomePlanned);
   $("summaryIncomeActual").textContent=money(totals.incomeActual);
   $("summaryExpensePlanned").textContent=money(totals.expensePlanned);
@@ -438,8 +439,55 @@ function renderSummary() {
   $("summaryPending").textContent=money(totals.pendingExpenses);
   $("summaryAvailable").textContent=money(totals.available);
   $("summaryExpected").textContent=money(totals.expected);
+
+  const afterPending=totals.available-totals.pendingExpenses;
+  $("summaryAfterPending").textContent=money(afterPending);
+
+  const incomePct=totals.incomePlanned>0
+    ? Math.min(100,Math.max(0,(totals.incomeActual/totals.incomePlanned)*100))
+    : (totals.incomeActual>0 ? 100 : 0);
+  const expensePct=totals.expensePlanned>0
+    ? Math.min(100,Math.max(0,(totals.expenseActual/totals.expensePlanned)*100))
+    : 0;
+
+  $("summaryIncomePct").textContent=`${incomePct.toFixed(0)}%`;
+  $("summaryIncomeProgress").value=incomePct;
+  $("summaryExpensePct").textContent=`${expensePct.toFixed(0)}%`;
+  $("summaryExpenseProgress").value=expensePct;
+
   $("summaryVariance").textContent=money(totals.variance);
-  $("summaryVariance").className = totals.variance >= 0 ? "positive-value" : "negative-value";
+  $("summaryVarianceText").textContent=`Diferencia frente al plan: ${totals.variance>=0?"+":""}${money(totals.variance)}`;
+
+  const badge=$("summaryHealthBadge");
+  const message=$("summaryMessage");
+  badge.className="summary-health-badge";
+
+  if(totals.incomeActual===0 && totals.expenseActual===0){
+    badge.textContent="Sin movimientos";
+    badge.classList.add("neutral");
+    message.textContent="Todavía no hay ingresos ni pagos reales registrados.";
+  }else if(afterPending<0){
+    badge.textContent="Saldo insuficiente";
+    badge.classList.add("danger");
+    message.textContent=`Faltarían ${money(Math.abs(afterPending))} para cubrir todos los gastos pendientes.`;
+  }else if(totals.pendingExpenses>0){
+    badge.textContent="Con compromisos";
+    badge.classList.add("warning");
+    message.textContent=`Después de pagar todo lo pendiente quedarían ${money(afterPending)} disponibles.`;
+  }else{
+    badge.textContent="Al día";
+    badge.classList.add("good");
+    message.textContent=`Todos los gastos registrados están pagados y quedan ${money(totals.available)} disponibles.`;
+  }
+
+  const valueMap={
+    summaryAvailable:totals.available,
+    summaryAfterPending:afterPending,
+    summaryExpected:totals.expected
+  };
+  Object.entries(valueMap).forEach(([id,value])=>{
+    $(id).classList.toggle("negative-value",value<0);
+  });
 }
 
 async function updateRealized(kind,id,owner,realized,checkElement) {
