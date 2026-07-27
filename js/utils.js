@@ -1,7 +1,7 @@
 export const MONTHS = ["Enero","Febrero","Marzo","Abril","Mayo","Junio","Julio","Agosto","Septiembre","Octubre","Noviembre","Diciembre"];
 export const NAMES = { general:"General", elber:"Elber", mayra:"Mayra" };
-export const EXPENSE_CATEGORIES = ["Alimentación","Frutas","Transporte","Servicios del hogar","Internet","Luz","Agua","Celulares","Mascotas","Combustible / GNV","Deudas / cuotas","Salidas","Streaming","Familia","Educación","Salud","Otros"];
-export const INCOME_CATEGORY = "Ingreso";
+export const DEFAULT_EXPENSE_CATEGORIES = ["Alimentación","Frutas","Transporte","Servicios del hogar","Internet","Luz","Agua","Celulares","Mascotas","Combustible / GNV","Deudas / cuotas","Salidas","Streaming","Familia","Educación","Salud","Otros"];
+export const DEFAULT_INCOME_CATEGORIES = ["Sueldo","Trabajo externo","Bono","Gratificación / CTS","Otros ingresos"];
 
 export const $ = id => document.getElementById(id);
 export const money = value => new Intl.NumberFormat("es-ES",{style:"currency",currency:"PEN"}).format(Number(value || 0));

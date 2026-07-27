@@ -201,8 +201,36 @@
               <button id="logoutBtn" class="secondary-btn">Cerrar sesión</button>
             </div>
             <div class="setting-row">
-              <div><strong>Copiar presupuesto del mes anterior</strong><small>Copia ingresos y gastos fijos sin marcarlos como pagados.</small></div>
-              <button id="copyPreviousBtn" class="secondary-btn">Copiar</button>
+              <div><strong>Copiar ingresos del mes anterior</strong><small>Agrega únicamente los ingresos que todavía no existen en el mes actual.</small></div>
+              <button id="copyIncomeBtn" class="secondary-btn">Copiar ingresos</button>
+            </div>
+            <div class="setting-row">
+              <div><strong>Copiar gastos fijos del mes anterior</strong><small>Los copia desmarcados y sin duplicar conceptos existentes.</small></div>
+              <button id="copyFixedBtn" class="secondary-btn">Copiar gastos</button>
+            </div>
+            <div class="setting-block">
+              <div class="setting-block-heading">
+                <div><strong>Categorías de ingresos</strong><small>Agrega o elimina categorías disponibles para nuevos ingresos.</small></div>
+              </div>
+              <div class="category-editor">
+                <div class="category-add-row">
+                  <input id="newIncomeCategory" type="text" placeholder="Ejemplo: Trabajo externo">
+                  <button id="addIncomeCategoryBtn" class="secondary-btn">Agregar</button>
+                </div>
+                <div id="incomeCategoryList" class="editable-category-list"></div>
+              </div>
+            </div>
+            <div class="setting-block">
+              <div class="setting-block-heading">
+                <div><strong>Categorías de gastos</strong><small>Se usarán tanto en gastos fijos como variables.</small></div>
+              </div>
+              <div class="category-editor">
+                <div class="category-add-row">
+                  <input id="newExpenseCategory" type="text" placeholder="Ejemplo: Mantenimiento">
+                  <button id="addExpenseCategoryBtn" class="secondary-btn">Agregar</button>
+                </div>
+                <div id="expenseCategoryList" class="editable-category-list"></div>
+              </div>
             </div>
             <div class="setting-row">
               <div><strong>Reiniciar mes actual</strong><small>Elimina los datos de Elber y Mayra del mes seleccionado.</small></div>

@@ -1,10 +1,10 @@
-import { $, MONTHS, NAMES, EXPENSE_CATEGORIES, money, escapeHtml, today, uid, formatDate } from "./utils.js";
+import { $, MONTHS, NAMES, money, escapeHtml, today, uid, formatDate } from "./utils.js";
 import { loginWithGoogle, observeSession, logout } from "./auth.js";
 import { observeFinanceData, saveFinanceData } from "./firestore.js";
-import { createEmptyState, ensureMonth, getProfileData, calculateTotals, getHistory, previousMonthKey } from "./budget.js";
+import { createEmptyState, normalizeState, ensureMonth, getProfileData, calculateTotals, getHistory, previousMonthKey } from "./budget.js";
 import { initNavigation, showView } from "./navigation.js";
 import { renderDashboard } from "./dashboard.js";
-import { initHistoryFilters, renderHistory } from "./history.js";
+import { initHistoryFilters, renderHistory, renderHistoryCategoryOptions } from "./history.js";
 
 let currentUser = null;
 let currentUserProfile = null;
@@ -59,6 +59,8 @@ function renderAll() {
   renderVariable();
   renderSummary();
   renderDashboard(state,currentKey(),selectedProfile);
+  renderCategoryEditors();
+  renderHistoryCategoryOptions(state);
   renderHistory(state,currentKey(),selectedProfile);
 }
 
@@ -139,8 +141,10 @@ function bindEditRows(container) {
 function openRecordModal(kind,id=null,owner=null) {
   $("recordForm").reset();
   $("recordId").value=id||"";$("recordKind").value=kind;$("recordOwner").value=owner||selectedOwner();$("recordDate").value=today();
-  $("recordCategory").innerHTML=EXPENSE_CATEGORIES.map(category=>`<option>${category}</option>`).join("");
-  $("categoryField").classList.toggle("hidden",kind==="income");
+  const categoryType = kind==="income" ? "income" : "expense";
+  const categories = state.settings.categories[categoryType];
+  $("recordCategory").innerHTML=categories.map(category=>`<option>${escapeHtml(category)}</option>`).join("");
+  $("categoryField").classList.remove("hidden");
   $("paidField").classList.toggle("hidden",kind!=="fixed");
   $("modalTitle").textContent = id ? "Editar registro" : kind==="income" ? "Agregar ingreso" : kind==="fixed" ? "Agregar gasto fijo" : "Agregar gasto variable";
   $("deleteRecordBtn").classList.toggle("hidden",!id);
@@ -150,7 +154,7 @@ function openRecordModal(kind,id=null,owner=null) {
     const item = collection.find(row=>row.id===id);
     if(item){
       $("recordConcept").value=item.concept;$("recordAmount").value=item.amount;$("recordDate").value=item.date;
-      if(kind!=="income") $("recordCategory").value=item.category;
+      $("recordCategory").value=item.category || (kind==="income" ? state.settings.categories.income[0] : state.settings.categories.expense[0]);
       if(kind==="fixed") $("recordPaid").checked=item.paid;
     }
   }
@@ -166,9 +170,12 @@ async function saveRecord(event) {
   const property=kind==="income"?"incomes":kind;
   ["elber","mayra"].forEach(person=>month[person][property]=month[person][property].filter(item=>item.id!==id));
   const item={
-    id,owner,concept:$("recordConcept").value.trim(),amount:Number($("recordAmount").value),date:$("recordDate").value
+    id,owner,
+    concept:$("recordConcept").value.trim(),
+    category:$("recordCategory").value,
+    amount:Number($("recordAmount").value),
+    date:$("recordDate").value
   };
-  if(kind!=="income") item.category=$("recordCategory").value;
   if(kind==="fixed") item.paid=$("recordPaid").checked;
   month[owner][property].push(item);
   closeModal();renderAll();await persist();
@@ -183,16 +190,109 @@ async function deleteRecord() {
   closeModal();renderAll();await persist();
 }
 
-async function copyPreviousMonth() {
+function duplicateKey(item) {
+  return `${item.owner}|${(item.concept||"").trim().toLowerCase()}|${(item.category||"").trim().toLowerCase()}`;
+}
+
+async function copyPreviousIncomes() {
   const destination=currentKey(), source=previousMonthKey(destination);
-  if(!state.months[source]) return alert("El mes anterior no tiene presupuesto registrado.");
-  if(!confirm("¿Copiar ingresos y gastos fijos del mes anterior?")) return;
+  if(!state.months[source]) return alert("El mes anterior no tiene información registrada.");
   const target=ensureMonth(state,destination);
+  let copied=0, skipped=0;
+
   ["elber","mayra"].forEach(person=>{
-    target[person].incomes=state.months[source][person].incomes.map(item=>({...item,id:uid(),date:today()}));
-    target[person].fixed=state.months[source][person].fixed.map(item=>({...item,id:uid(),paid:false,date:today()}));
+    const existing = new Set(target[person].incomes.map(duplicateKey));
+    state.months[source][person].incomes.forEach(item=>{
+      const candidate={...item,id:uid(),owner:person,date:today()};
+      const key=duplicateKey(candidate);
+      if(existing.has(key)){ skipped++; return; }
+      target[person].incomes.push(candidate);
+      existing.add(key);
+      copied++;
+    });
   });
-  renderAll();await persist();
+
+  renderAll();
+  if(copied) await persist();
+  alert(`Ingresos copiados: ${copied}. Duplicados omitidos: ${skipped}.`);
+}
+
+async function copyPreviousFixed() {
+  const destination=currentKey(), source=previousMonthKey(destination);
+  if(!state.months[source]) return alert("El mes anterior no tiene información registrada.");
+  const target=ensureMonth(state,destination);
+  let copied=0, skipped=0;
+
+  ["elber","mayra"].forEach(person=>{
+    const existing = new Set(target[person].fixed.map(duplicateKey));
+    state.months[source][person].fixed.forEach(item=>{
+      const candidate={...item,id:uid(),owner:person,paid:false,date:today()};
+      const key=duplicateKey(candidate);
+      if(existing.has(key)){ skipped++; return; }
+      target[person].fixed.push(candidate);
+      existing.add(key);
+      copied++;
+    });
+  });
+
+  renderAll();
+  if(copied) await persist();
+  alert(`Gastos fijos copiados: ${copied}. Duplicados omitidos: ${skipped}.`);
+}
+
+function normalizeCategoryName(value) {
+  return value.trim().replace(/\s+/g," ");
+}
+
+async function addCategory(type,inputId) {
+  const input=$(inputId);
+  const value=normalizeCategoryName(input.value);
+  if(!value) return;
+  const categories=state.settings.categories[type];
+  if(categories.some(category=>category.toLowerCase()===value.toLowerCase())){
+    return alert("Esa categoría ya existe.");
+  }
+  categories.push(value);
+  categories.sort((a,b)=>a.localeCompare(b,"es"));
+  input.value="";
+  renderAll();
+  await persist();
+}
+
+async function deleteCategory(type,category) {
+  const categories=state.settings.categories[type];
+  if(categories.length<=1) return alert("Debe quedar al menos una categoría.");
+  const inUse=Object.values(state.months).some(month=>
+    ["elber","mayra"].some(person=>{
+      const records=type==="income"
+        ? month[person].incomes
+        : [...month[person].fixed,...month[person].variable];
+      return records.some(item=>item.category===category);
+    })
+  );
+  const message=inUse
+    ? `La categoría "${category}" ya está usada en registros. Se quitará de las opciones nuevas, pero los registros anteriores conservarán el nombre. ¿Continuar?`
+    : `¿Eliminar la categoría "${category}"?`;
+  if(!confirm(message)) return;
+  state.settings.categories[type]=categories.filter(item=>item!==category);
+  renderAll();
+  await persist();
+}
+
+function renderCategoryEditors() {
+  const renderList=(type,id)=>{
+    const categories=state.settings.categories[type];
+    $(id).innerHTML=categories.map(category=>`
+      <div class="editable-category">
+        <span>${escapeHtml(category)}</span>
+        <button type="button" data-delete-category="${escapeHtml(category)}" data-category-type="${type}" aria-label="Eliminar categoría">×</button>
+      </div>`).join("");
+  };
+  renderList("income","incomeCategoryList");
+  renderList("expense","expenseCategoryList");
+  document.querySelectorAll("[data-delete-category]").forEach(button=>{
+    button.addEventListener("click",()=>deleteCategory(button.dataset.categoryType,button.dataset.deleteCategory));
+  });
 }
 
 async function resetMonth() {
@@ -218,7 +318,16 @@ function bindUi() {
   $("formModal").addEventListener("click",event=>event.target===$("formModal")&&closeModal());
   $("recordForm").addEventListener("submit",saveRecord);
   $("deleteRecordBtn").addEventListener("click",deleteRecord);
-  $("copyPreviousBtn").addEventListener("click",copyPreviousMonth);
+  $("copyIncomeBtn").addEventListener("click",copyPreviousIncomes);
+  $("copyFixedBtn").addEventListener("click",copyPreviousFixed);
+  $("addIncomeCategoryBtn").addEventListener("click",()=>addCategory("income","newIncomeCategory"));
+  $("addExpenseCategoryBtn").addEventListener("click",()=>addCategory("expense","newExpenseCategory"));
+  $("newIncomeCategory").addEventListener("keydown",event=>{
+    if(event.key==="Enter"){event.preventDefault();addCategory("income","newIncomeCategory");}
+  });
+  $("newExpenseCategory").addEventListener("keydown",event=>{
+    if(event.key==="Enter"){event.preventDefault();addCategory("expense","newExpenseCategory");}
+  });
   $("resetMonthBtn").addEventListener("click",resetMonth);
 }
 
@@ -242,7 +351,7 @@ observeSession(({user,profile,error})=>{
   stopFinanceObserver?.();
   stopFinanceObserver=observeFinanceData(async(remoteState,exists)=>{
     if(remoteState){
-      state=remoteState;
+      state=normalizeState(remoteState);
     }else{
       state=createEmptyState();
       await saveFinanceData(state,user.email);

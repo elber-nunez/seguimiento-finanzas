@@ -1,10 +1,21 @@
-import { $, money, escapeHtml, formatDate, NAMES, EXPENSE_CATEGORIES } from "./utils.js";
+import { $, money, escapeHtml, formatDate, NAMES } from "./utils.js";
 import { getHistory } from "./budget.js";
 
 export function initHistoryFilters(onChange) {
-  $("historyCategoryFilter").innerHTML = '<option value="all">Todas las categorías</option>' + EXPENSE_CATEGORIES.map(c=>`<option>${c}</option>`).join("");
   $("historyTypeFilter").addEventListener("change",onChange);
   $("historyCategoryFilter").addEventListener("change",onChange);
+}
+
+export function renderHistoryCategoryOptions(state) {
+  const current = $("historyCategoryFilter").value || "all";
+  const categories = [
+    ...(state.settings?.categories?.income || []),
+    ...(state.settings?.categories?.expense || [])
+  ].filter((value,index,array)=>array.indexOf(value)===index).sort((a,b)=>a.localeCompare(b,"es"));
+  $("historyCategoryFilter").innerHTML =
+    '<option value="all">Todas las categorías</option>' +
+    categories.map(category=>`<option>${escapeHtml(category)}</option>`).join("");
+  $("historyCategoryFilter").value = categories.includes(current) ? current : "all";
 }
 
 export function renderHistory(state,key,profile) {

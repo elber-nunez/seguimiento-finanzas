@@ -31,7 +31,7 @@ Edita:
 
 Reemplaza:
 
-`REEMPLAZAR_CORREO_DE_MAYRA@gmail.com`
+`mayra.barrera.g01@gmail.com`
 
 por el correo real de Google de Mayra, en minúsculas.
 
@@ -74,3 +74,12 @@ Toda la información se guarda en un único documento compartido:
 `families/elber-mayra`
 
 Los dos usuarios autorizados pueden visualizar y actualizar los datos.
+
+
+## Versión 7
+
+- Copia separada de ingresos y gastos fijos desde el mes anterior.
+- Solo se agregan registros faltantes; los duplicados se omiten.
+- Los gastos fijos copiados comienzan desmarcados.
+- Categorías de ingresos y gastos editables desde Configuración.
+- Los registros anteriores conservan la categoría aunque se elimine de las opciones nuevas.
