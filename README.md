@@ -163,3 +163,14 @@ Los dos usuarios autorizados pueden visualizar y actualizar los datos.
 - Los pagos pueden marcarse desde la matriz.
 - Cada gasto generado puede editarse desde Gastos fijos, incluyendo el responsable Elber/Mayra.
 - Las pensiones escolares no se copian con la función de copiar gastos fijos del mes anterior.
+
+
+## Versión 13 — corrección de persistencia de checks
+
+- Corrige la pérdida de checks al cambiar de periodo y regresar.
+- Si se marcan varios pagos rápidamente, todos se agregan a una cola de guardado.
+- Firestore ya no reemplaza cambios locales mientras todavía se están sincronizando.
+- El estado muestra:
+  - `Guardando…`
+  - `Cambios pendientes…`
+  - `Sincronizado`

@@ -14,6 +14,7 @@ let state = createEmptyState();
 let stopFinanceObserver = null;
 let selectedProfile = "general";
 let saving = false;
+let saveQueued = false;
 
 function currentKey() {
   return `${$("yearPicker").value}-${String(Number($("monthPicker").value)+1).padStart(2,"0")}`;
@@ -32,11 +33,26 @@ function initPeriodPickers() {
 }
 
 async function persist() {
-  if (!currentUser || saving) return;
+  if (!currentUser) return;
+
+  if (saving) {
+    saveQueued = true;
+    $("syncStatus").textContent = "Cambios pendientes…";
+    return;
+  }
+
   saving = true;
-  $("syncStatus").textContent = "Guardando…";
   try {
-    await saveFinanceData(state,currentUser.email);
+    do {
+      saveQueued = false;
+      $("syncStatus").textContent = "Guardando…";
+
+      // Guardamos una copia estable. Si el usuario marca otro check
+      // mientras se guarda, saveQueued obliga a una nueva escritura.
+      const stateSnapshot = JSON.parse(JSON.stringify(state));
+      await saveFinanceData(stateSnapshot,currentUser.email);
+    } while (saveQueued);
+
     $("syncStatus").textContent = "Sincronizado";
   } catch(error) {
     console.error(error);
@@ -816,6 +832,13 @@ observeSession(({user,profile,error})=>{
 
   stopFinanceObserver?.();
   stopFinanceObserver=observeFinanceData(async(remoteState,exists)=>{
+    // Mientras existen cambios locales en proceso, no reemplazamos el
+    // estado con una respuesta anterior de Firestore.
+    if (saving || saveQueued) {
+      $("syncStatus").textContent = saveQueued ? "Cambios pendientes…" : "Guardando…";
+      return;
+    }
+
     if(remoteState){
       state=normalizeState(remoteState);
     }else{
