@@ -145,3 +145,21 @@ Los dos usuarios autorizados pueden visualizar y actualizar los datos.
   - Si pagas más de lo previsto, el sistema recalcula los meses pendientes.
   - Si pagas solo interés, el capital se mantiene.
   - Los indicadores y el detalle del préstamo actualizan meses estimados y meses pendientes.
+
+
+## Versión 12 — Pensiones escolares
+
+- Título visible: `Finanzas - V12`.
+- Nueva sección especial **Pensiones escolares**.
+- Permite registrar alumno, periodo, matrícula, mensualidad y responsable inicial.
+- Responsable predeterminado: **Mayra**.
+- Genera automáticamente gastos fijos con categoría `Pensión escolar`.
+- Cronograma:
+  - Matrícula en marzo.
+  - Pensiones de marzo a diciembre.
+  - Julio programado para quincena.
+  - Diciembre programado para quincena.
+- Matriz anual con montos y checks por alumno.
+- Los pagos pueden marcarse desde la matriz.
+- Cada gasto generado puede editarse desde Gastos fijos, incluyendo el responsable Elber/Mayra.
+- Las pensiones escolares no se copian con la función de copiar gastos fijos del mes anterior.

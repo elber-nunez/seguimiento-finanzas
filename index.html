@@ -4,7 +4,7 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
   <meta name="theme-color" content="#0f172a">
-  <title>Finanzas - V11</title>
+  <title>Finanzas - V12</title>
   <link rel="stylesheet" href="css/styles.css">
   <link rel="stylesheet" href="css/layout.css">
   <link rel="stylesheet" href="css/dashboard.css">
@@ -27,7 +27,7 @@
     <aside class="sidebar">
       <div class="sidebar-brand">
         <strong>Finanzas</strong>
-        <span>Elber y Mayra · V11</span>
+        <span>Elber y Mayra · V12</span>
       </div>
 
       <nav class="main-menu">
@@ -44,6 +44,7 @@
         </div>
 
         <button class="menu-item" data-view="loansView"><span>▣</span>Préstamos</button>
+        <button class="menu-item" data-view="schoolView"><span>▤</span>Pensiones escolares</button>
         <button class="menu-item" data-view="dashboardView"><span>▦</span>Dashboard</button>
         <button class="menu-item" data-view="historyView"><span>◷</span>Historial</button>
         <button class="menu-item" data-view="settingsView"><span>⚙</span>Configuración</button>
@@ -185,6 +186,40 @@
           <div id="loanList" class="loan-list"></div>
         </section>
 
+        <section id="schoolView" class="view">
+          <div class="page-heading">
+            <div>
+              <h1>Pensiones escolares</h1>
+              <p>Matriz anual de matrícula y pensiones desde marzo hasta diciembre.</p>
+            </div>
+            <button id="addSchoolPensionBtn" class="primary-btn">+ Agregar pensión escolar</button>
+          </div>
+
+          <div class="school-kpi-grid">
+            <article class="kpi-card"><span>Pensiones registradas</span><strong id="schoolStudentCount">0</strong><small>Alumnos del periodo seleccionado</small></article>
+            <article class="kpi-card"><span>Total previsto anual</span><strong id="schoolPlannedTotal">S/ 0,00</strong><small>Matrículas y mensualidades</small></article>
+            <article class="kpi-card"><span>Total real pagado</span><strong id="schoolActualTotal">S/ 0,00</strong><small>Pagos marcados como realizados</small></article>
+            <article class="kpi-card"><span>Pendiente anual</span><strong id="schoolPendingTotal">S/ 0,00</strong><small>Importe todavía no pagado</small></article>
+          </div>
+
+          <div class="school-toolbar">
+            <label for="schoolYearFilter">Periodo</label>
+            <select id="schoolYearFilter"></select>
+          </div>
+
+          <article class="panel school-matrix-panel">
+            <div class="table-scroll">
+              <table class="school-matrix">
+                <thead id="schoolMatrixHead"></thead>
+                <tbody id="schoolMatrixBody"></tbody>
+                <tfoot id="schoolMatrixFoot"></tfoot>
+              </table>
+            </div>
+          </article>
+
+          <div id="schoolCards" class="school-card-list"></div>
+        </section>
+
         <section id="dashboardView" class="view">
           <div class="page-heading"><div><h1>Dashboard</h1><p>Indicadores visuales de la vista y el mes seleccionados.</p></div></div>
           <div class="dashboard-grid">
@@ -286,6 +321,53 @@
           </article>
         </section>
       </main>
+    </div>
+  </div>
+
+  <div id="schoolModal" class="modal">
+    <div class="modal-card">
+      <button id="closeSchoolModalBtn" class="modal-close">×</button>
+      <h2 id="schoolModalTitle">Agregar pensión escolar</h2>
+      <form id="schoolForm">
+        <input id="schoolPensionId" type="hidden">
+
+        <label>Nombre del alumno
+          <input id="schoolStudentName" type="text" placeholder="Ejemplo: Luciana" required>
+        </label>
+
+        <div class="form-two-columns">
+          <label>Periodo escolar
+            <input id="schoolPeriodYear" type="number" min="2020" max="2100" step="1" required>
+          </label>
+
+          <label>Responsable inicial
+            <select id="schoolOwner">
+              <option value="mayra">Mayra</option>
+              <option value="elber">Elber</option>
+            </select>
+          </label>
+        </div>
+
+        <div class="form-two-columns">
+          <label>Matrícula
+            <input id="schoolEnrollmentAmount" type="number" min="0" step="0.01" value="200" required>
+          </label>
+
+          <label>Pensión mensual
+            <input id="schoolMonthlyAmount" type="number" min="0" step="0.01" value="295" required>
+          </label>
+        </div>
+
+        <div class="school-schedule-note">
+          <strong>Cronograma generado</strong>
+          <span>Marzo: matrícula + primera pensión</span>
+          <span>Julio: pago programado a quincena</span>
+          <span>Diciembre: pago programado a quincena</span>
+        </div>
+
+        <button class="primary-btn full-btn" type="submit">Guardar pensión escolar</button>
+        <button id="deleteSchoolPensionBtn" class="danger-btn full-btn hidden" type="button">Eliminar pensión escolar</button>
+      </form>
     </div>
   </div>
 

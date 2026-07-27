@@ -1,6 +1,6 @@
 export const MONTHS = ["Enero","Febrero","Marzo","Abril","Mayo","Junio","Julio","Agosto","Septiembre","Octubre","Noviembre","Diciembre"];
 export const NAMES = { general:"General", elber:"Elber", mayra:"Mayra" };
-export const DEFAULT_EXPENSE_CATEGORIES = ["Préstamo","Alimentación","Frutas","Transporte","Servicios del hogar","Internet","Luz","Agua","Celulares","Mascotas","Combustible / GNV","Deudas / cuotas","Salidas","Streaming","Familia","Educación","Salud","Otros"];
+export const DEFAULT_EXPENSE_CATEGORIES = ["Pensión escolar","Préstamo","Alimentación","Frutas","Transporte","Servicios del hogar","Internet","Luz","Agua","Celulares","Mascotas","Combustible / GNV","Deudas / cuotas","Salidas","Streaming","Familia","Educación","Salud","Otros"];
 export const DEFAULT_INCOME_CATEGORIES = ["Préstamo","Sueldo","Trabajo externo","Bono","Gratificación / CTS","Otros ingresos"];
 
 export const $ = id => document.getElementById(id);

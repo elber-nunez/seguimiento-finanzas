@@ -6,6 +6,7 @@ import { initNavigation, showView } from "./navigation.js";
 import { renderDashboard } from "./dashboard.js";
 import { initHistoryFilters, renderHistory, renderHistoryCategoryOptions } from "./history.js";
 import { createLoan, updateLoanMetadata, payoffLoan, deleteLoan, loanMetrics, loanRecords, applyFlexiblePayment, flexiblePrincipalOutstanding, effectiveLoanTotal, flexibleRemainingMonths } from "./loans.js";
+import { SCHOOL_ROWS, createSchoolPension, updateSchoolPension, deleteSchoolPension, pensionRecords, schoolPensionsForYear, schoolMetrics } from "./school-pensions.js";
 
 let currentUser = null;
 let currentUserProfile = null;
@@ -61,6 +62,7 @@ function renderAll() {
   renderSummary();
   renderDashboard(state,currentKey(),selectedProfile);
   renderLoans();
+  renderSchoolPensions();
   renderCategoryEditors();
   renderHistoryCategoryOptions(state);
   renderHistory(state,currentKey(),selectedProfile);
@@ -330,7 +332,7 @@ async function copyPreviousFixed() {
 
   ["elber","mayra"].forEach(person=>{
     const existing = new Set(target[person].fixed.map(duplicateKey));
-    state.months[source][person].fixed.filter(item=>item.sourceType!=="loan-installment").forEach(item=>{
+    state.months[source][person].fixed.filter(item=>item.sourceType!=="loan-installment" && item.sourceType!=="school-pension").forEach(item=>{
       const candidate={...item,id:uid(),owner:person,realized:false,actualAmount:0,date:today()};
       const key=duplicateKey(candidate);
       if(existing.has(key)){ skipped++; return; }
@@ -406,6 +408,152 @@ async function resetMonth() {
   renderAll();await persist();
 }
 
+
+
+function schoolSelectedYear() {
+  return Number($("schoolYearFilter").value || $("yearPicker").value);
+}
+
+function renderSchoolYearOptions() {
+  const current=String($("schoolYearFilter").value || $("yearPicker").value);
+  const years=[...new Set([
+    ...Object.keys(state.months||{}).map(key=>Number(key.slice(0,4))),
+    ...(state.schoolPensions||[]).map(item=>Number(item.year)),
+    Number($("yearPicker").value)
+  ])].filter(Boolean).sort((a,b)=>b-a);
+  $("schoolYearFilter").innerHTML=years.map(year=>`<option value="${year}">${year}</option>`).join("");
+  $("schoolYearFilter").value=years.includes(Number(current))?current:String(years[0]||new Date().getFullYear());
+}
+
+function renderSchoolPensions() {
+  renderSchoolYearOptions();
+  const year=schoolSelectedYear();
+  const metrics=schoolMetrics(state,year,selectedProfile);
+  $("schoolStudentCount").textContent=String(metrics.pensions.length);
+  $("schoolPlannedTotal").textContent=money(metrics.planned);
+  $("schoolActualTotal").textContent=money(metrics.actual);
+  $("schoolPendingTotal").textContent=money(metrics.pending);
+
+  const pensions=metrics.pensions;
+  $("schoolMatrixHead").innerHTML=`
+    <tr>
+      <th>Mensualidad</th>
+      ${pensions.map(pension=>`<th colspan="2">${escapeHtml(pension.studentName)}</th>`).join("")}
+    </tr>
+    <tr>
+      <th></th>
+      ${pensions.map(()=>"<th>Monto</th><th>Pago</th>").join("")}
+    </tr>`;
+
+  $("schoolMatrixBody").innerHTML=SCHOOL_ROWS.map(row=>`
+    <tr>
+      <td>${row.label}</td>
+      ${pensions.map(pension=>{
+        const record=pensionRecords(state,pension.id).find(({item})=>item.schoolRowKey===row.key);
+        if(!record) return "<td>—</td><td>—</td>";
+        return `<td class="school-amount-cell" data-school-edit="${record.item.id}" data-owner="${record.owner}">${money(record.item.plannedAmount)}</td>
+          <td><input type="checkbox" data-school-check="${record.item.id}" data-owner="${record.owner}" ${record.item.realized?"checked":""}></td>`;
+      }).join("")}
+    </tr>`).join("");
+
+  $("schoolMatrixFoot").innerHTML=`
+    <tr>
+      <td>Total</td>
+      ${pensions.map(pension=>{
+        const records=pensionRecords(state,pension.id);
+        const total=records.reduce((sum,{item})=>sum+Number(item.plannedAmount||0),0);
+        return `<td>${money(total)}</td><td></td>`;
+      }).join("")}
+    </tr>`;
+
+  $("schoolCards").innerHTML=pensions.length ? pensions.map(pension=>{
+    const records=pensionRecords(state,pension.id);
+    const paidCount=records.filter(({item})=>item.realized).length;
+    const total=records.reduce((sum,{item})=>sum+Number(item.plannedAmount||0),0);
+    return `<article class="school-card" data-school-pension-id="${pension.id}">
+      <div>
+        <strong>${escapeHtml(pension.studentName)}</strong>
+        <span>Periodo ${pension.year} · Responsable inicial ${NAMES[pension.owner]}</span>
+      </div>
+      <div>
+        <strong>${money(total)}</strong>
+        <span>${paidCount} de ${records.length} pagos realizados</span>
+      </div>
+    </article>`;
+  }).join("") : '<div class="empty">No hay pensiones escolares para este periodo.</div>';
+
+  document.querySelectorAll("[data-school-check]").forEach(check=>{
+    check.addEventListener("change",()=>updateRealized("fixed",check.dataset.schoolCheck,check.dataset.owner,check.checked,check));
+  });
+  document.querySelectorAll("[data-school-edit]").forEach(cell=>{
+    cell.addEventListener("click",()=>openRecordModal("fixed",cell.dataset.schoolEdit,cell.dataset.owner));
+  });
+  document.querySelectorAll("[data-school-pension-id]").forEach(card=>{
+    card.addEventListener("click",()=>openSchoolModal(card.dataset.schoolPensionId));
+  });
+}
+
+function openSchoolModal(id=null) {
+  $("schoolForm").reset();
+  $("schoolPensionId").value=id||"";
+  $("schoolStudentName").value="";
+  $("schoolPeriodYear").value=Number($("yearPicker").value);
+  $("schoolOwner").value="mayra";
+  $("schoolEnrollmentAmount").value="200";
+  $("schoolMonthlyAmount").value="295";
+  $("schoolModalTitle").textContent=id?"Editar pensión escolar":"Agregar pensión escolar";
+  $("deleteSchoolPensionBtn").classList.toggle("hidden",!id);
+  $("schoolPeriodYear").disabled=Boolean(id);
+  $("schoolOwner").disabled=Boolean(id);
+
+  if(id){
+    const pension=(state.schoolPensions||[]).find(item=>item.id===id);
+    if(!pension) return;
+    $("schoolStudentName").value=pension.studentName;
+    $("schoolPeriodYear").value=pension.year;
+    $("schoolOwner").value=pension.owner;
+    $("schoolEnrollmentAmount").value=pension.enrollmentAmount;
+    $("schoolMonthlyAmount").value=pension.monthlyAmount;
+  }
+  $("schoolModal").classList.add("open");
+}
+
+function closeSchoolModal(){ $("schoolModal").classList.remove("open"); }
+
+async function saveSchoolPension(event) {
+  event.preventDefault();
+  const id=$("schoolPensionId").value;
+  const values={
+    studentName:$("schoolStudentName").value,
+    year:Number($("schoolPeriodYear").value),
+    owner:$("schoolOwner").value,
+    enrollmentAmount:Number($("schoolEnrollmentAmount").value),
+    monthlyAmount:Number($("schoolMonthlyAmount").value)
+  };
+  if(!id){
+    const duplicate=(state.schoolPensions||[]).some(item=>
+      item.studentName.trim().toLowerCase()===values.studentName.trim().toLowerCase() &&
+      Number(item.year)===values.year
+    );
+    if(duplicate) return alert("Ya existe una pensión para ese alumno y periodo.");
+    createSchoolPension(state,values);
+  }else{
+    updateSchoolPension(state,id,values);
+  }
+  closeSchoolModal();
+  renderAll();
+  await persist();
+}
+
+async function removeSchoolPension() {
+  const id=$("schoolPensionId").value;
+  if(!id || !confirm("¿Eliminar esta pensión escolar y todos sus pagos relacionados?")) return;
+  if(deleteSchoolPension(state,id)){
+    closeSchoolModal();
+    renderAll();
+    await persist();
+  }
+}
 
 function renderLoans() {
   const metrics=loanMetrics(state,selectedProfile,currentKey());
@@ -605,6 +753,7 @@ function bindUi() {
   $("logoutBtn").addEventListener("click",logout);$("userButton").addEventListener("click",()=>confirm("¿Cerrar sesión?")&&logout());
   $("addIncomeBtn").addEventListener("click",()=>openRecordModal("income"));
   $("addLoanBtn").addEventListener("click",()=>openLoanModal());
+  $("addSchoolPensionBtn").addEventListener("click",()=>openSchoolModal());
   $("addFixedBtn").addEventListener("click",()=>openRecordModal("fixed"));
   $("addVariableBtn").addEventListener("click",()=>openRecordModal("variable"));
   $("quickExpenseBtn").addEventListener("click",()=>openRecordModal("variable"));
@@ -641,6 +790,11 @@ function bindUi() {
   });
   $("loanType").addEventListener("change",toggleLoanTypeFields);
   $("loanPaidOff").addEventListener("change",togglePayoffFields);
+  $("schoolYearFilter").addEventListener("change",renderSchoolPensions);
+  $("closeSchoolModalBtn").addEventListener("click",closeSchoolModal);
+  $("schoolModal").addEventListener("click",event=>event.target===$("schoolModal")&&closeSchoolModal());
+  $("schoolForm").addEventListener("submit",saveSchoolPension);
+  $("deleteSchoolPensionBtn").addEventListener("click",removeSchoolPension);
 }
 
 initPeriodPickers();

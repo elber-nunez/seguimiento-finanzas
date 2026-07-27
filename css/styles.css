@@ -121,3 +121,29 @@ h1,h2,p{margin-top:0}
   .fixed-filter-bar{align-items:stretch;flex-direction:column}
   .fixed-filter-bar select{width:100%}
 }
+
+.school-kpi-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin-bottom:14px}
+.school-toolbar{display:flex;align-items:center;gap:8px;margin-bottom:12px}
+.school-toolbar label{font-size:.75rem;color:var(--muted);font-weight:800}
+.school-toolbar select{padding:9px 11px;border:1px solid var(--line);border-radius:10px;background:#fff;font-weight:800}
+.school-matrix-panel{padding:0;overflow:hidden}
+.school-matrix{min-width:760px}
+.school-matrix th,.school-matrix td{text-align:center;border-right:1px solid var(--line)}
+.school-matrix th:first-child,.school-matrix td:first-child{text-align:left;position:sticky;left:0;background:#fff;z-index:2}
+.school-matrix thead th{background:#1b123b;color:#fff}
+.school-matrix thead tr:nth-child(2) th{background:#2b1d57}
+.school-matrix tbody tr:nth-child(even) td{background:#f8fafc}
+.school-matrix input[type="checkbox"]{width:20px;height:20px;accent-color:var(--green)}
+.school-amount-cell{cursor:pointer;font-weight:800}
+.school-amount-cell:hover{background:#fff7ed!important}
+.school-card-list{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin-top:14px}
+.school-card{display:flex;justify-content:space-between;gap:14px;padding:14px;border:1px solid var(--line);border-radius:15px;background:#fff;box-shadow:var(--shadow);cursor:pointer}
+.school-card:hover{border-color:#b8c7d9}
+.school-card strong,.school-card span{display:block}.school-card span{margin-top:4px;font-size:.72rem;color:var(--muted)}
+.school-card>div:last-child{text-align:right}
+.school-schedule-note{display:flex;flex-direction:column;gap:4px;padding:11px;margin-bottom:13px;border-radius:12px;background:#f8fafc;border:1px solid var(--line)}
+.school-schedule-note span{font-size:.72rem;color:var(--muted)}
+@media(max-width:900px){
+  .school-kpi-grid{grid-template-columns:repeat(2,1fr)}
+  .school-card-list{grid-template-columns:1fr}
+}

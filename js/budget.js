@@ -4,6 +4,7 @@ export function createEmptyState() {
   return {
     months:{},
     loans:[],
+    schoolPensions:[],
     ui:{ selectedProfile:"general" },
     settings:{
       categories:{
@@ -46,6 +47,7 @@ export function normalizeState(state) {
   const normalized = state || createEmptyState();
   normalized.months ||= {};
   normalized.loans ||= [];
+  normalized.schoolPensions ||= [];
   normalized.ui ||= { selectedProfile:"general" };
   normalized.settings ||= {};
   normalized.settings.categories ||= {};
@@ -60,6 +62,7 @@ export function normalizeState(state) {
 
   if (!normalized.settings.categories.income.includes("Préstamo")) normalized.settings.categories.income.unshift("Préstamo");
   if (!normalized.settings.categories.expense.includes("Préstamo")) normalized.settings.categories.expense.unshift("Préstamo");
+  if (!normalized.settings.categories.expense.includes("Pensión escolar")) normalized.settings.categories.expense.unshift("Pensión escolar");
 
   Object.values(normalized.months).forEach(month => {
     ["elber","mayra"].forEach(person => {
