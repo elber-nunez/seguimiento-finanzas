@@ -39,6 +39,10 @@ export function loanRecords(state, loanId) {
 
 export function createLoan(state, values) {
   state.loans ||= [];
+  const autoPlannedPrincipal = values.type === "flexible"
+    ? Number(values.plannedPrincipal || (Number(values.principal || 0) / Math.max(1, Number(values.installments || 1))))
+    : null;
+
   const loan = {
     id:uid(),
     owner:values.owner,
@@ -48,7 +52,7 @@ export function createLoan(state, values) {
     totalRepayment:values.type==="fixed" ? Number(values.totalRepayment) : null,
     adjustedTotalRepayment:null,
     monthlyInterest:values.type==="flexible" ? Number(values.monthlyInterest) : null,
-    plannedPrincipal:values.type==="flexible" ? Number(values.plannedPrincipal) : null,
+    plannedPrincipal:values.type==="flexible" ? autoPlannedPrincipal : null,
     installments:Number(values.installments),
     receivedMonthKey:values.receivedMonthKey,
     firstPaymentMonthKey:values.firstPaymentMonthKey,
@@ -149,6 +153,57 @@ export function flexiblePrincipalOutstanding(state,loanId) {
   return Math.max(0,Number(loan?.principal||0)-flexibleCapitalPaid(state,loanId));
 }
 
+export function flexibleRemainingMonths(state,loanId) {
+  return loanRecords(state,loanId).installments.filter(({item})=>!item.realized).length;
+}
+
+function removeFutureInstallments(state,loanId,monthKey) {
+  loanRecords(state,loanId).installments
+    .filter(record=>record.monthKey>monthKey && !record.item.realized)
+    .forEach(({item,monthKey:recordMonth,owner})=>{
+      const month=ensureMonth(state,recordMonth);
+      month[owner].fixed=month[owner].fixed.filter(row=>row.id!==item.id);
+    });
+}
+
+function updateFlexibleScheduleTotals(state, loanId, newTotalInstallments) {
+  loanRecords(state,loanId).installments.forEach(({item})=>{
+    item.totalInstallments = newTotalInstallments;
+  });
+}
+
+function rebuildFlexibleFutureSchedule(state, loan, currentMonthKey) {
+  const outstanding = flexiblePrincipalOutstanding(state,loan.id);
+  const records = loanRecords(state,loan.id);
+  const currentRecord = records.installments.find(({monthKey})=>monthKey===currentMonthKey);
+  const currentNumber = Number(currentRecord?.item?.installmentNumber || records.installments.filter(({item})=>item.realized).length || 0);
+
+  removeFutureInstallments(state,loan.id,currentMonthKey);
+
+  if(outstanding <= 0){
+    loan.status = "paid";
+    loan.paidOffAt = today();
+    loan.installments = currentNumber;
+    updateFlexibleScheduleTotals(state,loan.id,loan.installments);
+    return;
+  }
+
+  const plannedPrincipal = Math.max(0.01, Number(loan.plannedPrincipal || 0.01));
+  const remainingMonths = Math.ceil(outstanding / plannedPrincipal);
+  loan.status = "active";
+  loan.installments = currentNumber + remainingMonths;
+  updateFlexibleScheduleTotals(state,loan.id,loan.installments);
+
+  let runningOutstanding = outstanding;
+  for(let i=0; i<remainingMonths; i++){
+    const monthKey = addMonths(currentMonthKey, i+1);
+    const row = flexibleInstallmentRecord(loan, currentNumber + i, monthKey, runningOutstanding);
+    row.totalInstallments = loan.installments;
+    ensureMonth(state,monthKey)[loan.owner].fixed.push(row);
+    runningOutstanding = Math.max(0, runningOutstanding - row.plannedPrincipal);
+  }
+}
+
 export function applyFlexiblePayment(state, loanId, installmentItem, actualAmount) {
   const loan=(state.loans || []).find(item=>item.id===loanId);
   if(!loan) throw new Error("Préstamo no encontrado.");
@@ -162,34 +217,7 @@ export function applyFlexiblePayment(state, loanId, installmentItem, actualAmoun
   installmentItem.actualPrincipal=actualPrincipal;
   installmentItem.date=today();
 
-  const outstanding=flexiblePrincipalOutstanding(state,loanId);
-  if(outstanding<=0){
-    loan.status="paid";
-    loan.paidOffAt=today();
-    removeFutureInstallments(state,loanId,installmentItem.installmentMonthKey);
-  }else{
-    ensureFlexibleFutureRow(state,loan,installmentItem.installmentMonthKey,outstanding);
-  }
-}
-
-function ensureFlexibleFutureRow(state,loan,currentMonthKey,outstanding) {
-  const records=loanRecords(state,loan.id);
-  const hasFuture=records.installments.some(({monthKey,item})=>monthKey>currentMonthKey && !item.realized);
-  if(hasFuture) return;
-  const nextKey=addMonths(currentMonthKey,1);
-  const nextNumber=Math.max(0,...records.installments.map(({item})=>Number(item.installmentNumber||0)))+1;
-  const row=flexibleInstallmentRecord(loan,nextNumber-1,nextKey,outstanding);
-  row.totalInstallments=Math.max(loan.installments,nextNumber);
-  ensureMonth(state,nextKey)[loan.owner].fixed.push(row);
-}
-
-function removeFutureInstallments(state,loanId,monthKey) {
-  loanRecords(state,loanId).installments
-    .filter(record=>record.monthKey>monthKey)
-    .forEach(({item,monthKey:recordMonth,owner})=>{
-      const month=ensureMonth(state,recordMonth);
-      month[owner].fixed=month[owner].fixed.filter(row=>row.id!==item.id);
-    });
+  rebuildFlexibleFutureSchedule(state,loan,installmentItem.installmentMonthKey);
 }
 
 export function payoffLoan(state,loanId,payoffMonthKey,newFinalTotal=null) {
@@ -214,9 +242,13 @@ export function payoffLoan(state,loanId,payoffMonthKey,newFinalTotal=null) {
     payoffRecord.item.actualInterest=Math.min(finalAmount,interest);
     payoffRecord.item.actualPrincipal=Math.max(0,finalAmount-payoffRecord.item.actualInterest);
     payoffRecord.item.payoff=true;
-    loan.adjustedTotalRepayment=paidLoanAmount(state,loanId);
     removeFutureInstallments(state,loanId,payoffMonthKey);
-    loan.status="paid"; loan.payoffMonthKey=payoffMonthKey; loan.paidOffAt=today();
+    loan.adjustedTotalRepayment=paidLoanAmount(state,loanId);
+    loan.status="paid";
+    loan.installments = Number(payoffRecord.item.installmentNumber || loan.installments);
+    updateFlexibleScheduleTotals(state,loan.id,loan.installments);
+    loan.payoffMonthKey=payoffMonthKey;
+    loan.paidOffAt=today();
     return finalAmount;
   }
 
@@ -242,7 +274,9 @@ export function payoffLoan(state,loanId,payoffMonthKey,newFinalTotal=null) {
   removeFutureInstallments(state,loanId,payoffMonthKey);
 
   loan.adjustedTotalRepayment=finalTotal;
-  loan.status="paid"; loan.payoffMonthKey=payoffMonthKey; loan.paidOffAt=today();
+  loan.status="paid";
+  loan.payoffMonthKey=payoffMonthKey;
+  loan.paidOffAt=today();
   return remaining;
 }
 
@@ -281,7 +315,6 @@ export function loanMetrics(state,profile,currentMonthKey) {
     return sum+effectiveLoanTotal(loan);
   },0);
   const principal=loans.reduce((sum,loan)=>sum+Number(loan.principal||0),0);
-  const paid=rows.filter(({item})=>item.realized).reduce((sum,{item})=>sum+Number(item.actualAmount||0),0);
   const pending=loans.reduce((sum,loan)=>{
     if(loan.type==="flexible") return sum+flexiblePrincipalOutstanding(state,loan.id);
     return sum+Math.max(0,effectiveLoanTotal(loan)-paidLoanAmount(state,loan.id));
@@ -291,7 +324,8 @@ export function loanMetrics(state,profile,currentMonthKey) {
   return {
     loans,
     active:loans.filter(loan=>loan.status!=="paid").length,
-    principal,totalRepayment,
+    principal,
+    totalRepayment,
     interest:Math.max(0,totalRepayment-principal),
     pending,
     monthPlanned:monthRows.reduce((sum,{item})=>sum+Number(item.plannedAmount||0),0),

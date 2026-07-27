@@ -133,3 +133,15 @@ Los dos usuarios autorizados pueden visualizar y actualizar los datos.
   - El capital no pagado no se duplica en el mes siguiente.
   - Si al terminar el plazo referencial aún queda capital, se genera el siguiente pago.
 - Dashboard de préstamos actualizado.
+
+
+## Versión 11 — capital automático y filtro corregido
+
+- Título visible: `Finanzas - V11`.
+- El filtro por categoría de gastos fijos ahora se alinea a la izquierda.
+- En préstamos flexibles:
+  - El campo **Capital que planeas pagar por mes** se calcula automáticamente según el capital y el plazo.
+  - Sigue siendo editable manualmente.
+  - Si pagas más de lo previsto, el sistema recalcula los meses pendientes.
+  - Si pagas solo interés, el capital se mantiene.
+  - Los indicadores y el detalle del préstamo actualizan meses estimados y meses pendientes.
