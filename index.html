@@ -4,7 +4,7 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
   <meta name="theme-color" content="#0f172a">
-  <title>Finanzas - V20</title>
+  <title>Finanzas - V21</title>
   <link rel="stylesheet" href="css/styles.css">
   <link rel="stylesheet" href="css/layout.css">
   <link rel="stylesheet" href="css/dashboard.css">
@@ -26,8 +26,11 @@
   <div id="appShell" class="app-shell hidden">
     <aside class="sidebar">
       <div class="sidebar-brand">
-        <strong>Finanzas</strong>
-        <span>Elber y Mayra · V20</span>
+        <div>
+          <strong>Finanzas</strong>
+          <span>Elber y Mayra · V21</span>
+        </div>
+        <button id="closeSidebarBtn" class="close-sidebar-btn" type="button" aria-label="Cerrar menú">×</button>
       </div>
 
       <nav class="main-menu">
@@ -51,6 +54,8 @@
         <button class="menu-item" data-view="settingsView"><span>⚙</span>Configuración</button>
       </nav>
     </aside>
+
+    <button id="sidebarBackdrop" class="sidebar-backdrop hidden" type="button" aria-label="Cerrar menú"></button>
 
     <div class="content-shell">
       <header class="topbar">

@@ -1,4 +1,4 @@
-# Finanzas Elber y Mayra — V20
+# Finanzas Elber y Mayra — V21
 
 Aplicación web familiar para registrar, planificar y analizar ingresos, gastos, préstamos, pensiones escolares y saldos mensuales.
 
@@ -371,7 +371,7 @@ Antes de usar la V18 como versión definitiva, conviene validar:
 
 ## Versión
 
-Versión actual: **V20**
+Versión actual: **V21**
 
 Nombre sugerido de commit:
 
@@ -453,3 +453,20 @@ La sección Resumen se reorganizó en tres bloques fáciles de interpretar:
    - Mensaje automático que explica si el saldo es suficiente.
 
 La vista funciona igual para General, Elber y Mayra.
+
+
+## Versión 21 — mejoras para celular
+
+- Se agregó un botón `×` en la cabecera del menú lateral para cerrarlo manualmente.
+- El menú también puede cerrarse:
+  - tocando fuera del panel;
+  - presionando nuevamente el botón de menú;
+  - seleccionando una opción;
+  - presionando Escape.
+- Mientras el menú está abierto, se bloquea el desplazamiento de la página de fondo.
+- Los controles superiores en celular se reorganizaron:
+  - Usuario, mes y año ocupan columnas proporcionadas.
+  - Ningún selector queda cortado.
+  - El botón Cerrar mes ocupa una fila completa.
+  - La foto de usuario permanece alineada a la derecha.
+- Los cambios no alteran el diseño de computadora.

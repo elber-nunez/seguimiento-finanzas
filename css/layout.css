@@ -45,3 +45,62 @@
 .month-close-btn{padding:9px 12px;border:1px solid #b45309;border-radius:10px;background:#fff7ed;color:#9a3412;font-weight:850;white-space:nowrap}
 .month-close-btn.reopen{border-color:#15803d;background:#f0fdf4;color:#166534}
 .month-close-btn:disabled{opacity:.55;cursor:not-allowed}
+
+.sidebar-brand{display:flex;align-items:flex-start;justify-content:space-between;gap:10px}
+.close-sidebar-btn{display:none;width:36px;height:36px;border:0;border-radius:10px;background:rgba(255,255,255,.1);color:#fff;font-size:1.6rem;line-height:1;cursor:pointer}
+.sidebar-backdrop{position:fixed;inset:0;z-index:35;border:0;background:rgba(15,23,42,.48);backdrop-filter:blur(1px)}
+body.sidebar-open{overflow:hidden}
+
+@media(max-width:900px){
+  .sidebar{width:min(82vw,410px);overflow-y:auto;box-shadow:18px 0 45px rgba(15,23,42,.28)}
+  .close-sidebar-btn{display:grid;place-items:center;flex:0 0 auto}
+  .topbar{
+    grid-template-columns:auto minmax(0,1fr) auto;
+    gap:10px;
+    padding:10px 12px;
+  }
+  .topbar-controls{
+    grid-column:1/-1;
+    display:grid;
+    grid-template-columns:minmax(0,1fr) minmax(0,1fr) minmax(88px,.72fr);
+    gap:8px;
+    width:100%;
+    justify-content:stretch;
+    order:3;
+  }
+  .topbar-controls>select,
+  .topbar-controls>.month-multiselect{
+    width:100%;
+    min-width:0;
+  }
+  .topbar-controls select,
+  .month-filter-button{
+    width:100%;
+    max-width:none!important;
+    min-width:0;
+  }
+  .month-close-btn{
+    grid-column:1/-1;
+    width:100%;
+    justify-self:stretch;
+  }
+  .user-button{justify-self:end}
+}
+
+@media(max-width:560px){
+  .topbar-title{min-width:0}
+  .topbar-title strong{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  .topbar-controls{
+    grid-template-columns:minmax(0,1fr) minmax(0,1fr) 92px;
+  }
+  .topbar-controls select,
+  .month-filter-button,
+  .month-close-btn{
+    min-height:46px;
+    font-size:.95rem;
+  }
+  .month-filter-button{padding:10px}
+  .month-filter-label{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  .user-button{padding:5px 7px}
+  .user-button img{width:34px;height:34px}
+}
