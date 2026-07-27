@@ -213,3 +213,18 @@ Los dos usuarios autorizados pueden visualizar y actualizar los datos.
   - Evolución mensual.
   - Diagnóstico simple.
   - Comparación Elber, Mayra y General.
+
+
+## Versión 16 — saldo restante del mes anterior
+
+- Título visible: `Finanzas - V16`.
+- Cuando un mes termina con saldo real positivo, el siguiente mes muestra automáticamente:
+  - Concepto: `Saldo restante de <mes anterior>`.
+  - Categoría: `Saldo anterior`.
+  - Monto previsto y real iguales al saldo disponible.
+- Ejemplo:
+  - Agosto: ingreso real S/ 5.000 y gastos reales S/ 3.500.
+  - Septiembre recibe automáticamente `Saldo restante de agosto: S/ 1.500`.
+- Si el mes anterior termina en cero o negativo, no se genera saldo de arrastre.
+- El saldo es calculado, no se guarda como un registro editable; por eso se actualiza automáticamente cuando cambian ingresos o gastos anteriores.
+- En la vista anual, el saldo de apertura se incorpora solo una vez al inicio del periodo para evitar duplicar ingresos entre meses.

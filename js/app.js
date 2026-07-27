@@ -168,8 +168,8 @@ function itemRow(item,type,editable=true,withCheck=false) {
   return `<article class="${withCheck?"check-row":"item-row"} ${item.realized?"paid":""}">
     ${check}
     <div class="item-content" ${editAttrs}>
-      <div class="item-title">${escapeHtml(item.concept)} <span class="owner-tag">${NAMES[item.owner]}</span> <span class="status-tag ${item.realized?"real":"planned"}">${item.realized?"Real":"Previsto"}</span></div>
-      <div class="item-meta">${escapeHtml(item.category || "Ingreso")} · ${formatDate(item.date)}</div>
+      <div class="item-title">${escapeHtml(item.concept)} ${item.owner!=="general"?`<span class="owner-tag">${NAMES[item.owner]}</span>`:""} <span class="status-tag ${item.sourceType==="carryover"?"carryover":item.realized?"real":"planned"}">${item.sourceType==="carryover"?"Saldo anterior":item.realized?"Real":"Previsto"}</span></div>
+      <div class="item-meta">${escapeHtml(item.category || "Ingreso")} · ${item.sourceType==="carryover"?"Generado automáticamente":formatDate(item.date)}</div>
     </div>
     <div class="amount-comparison">
       <small>Prev. ${money(item.plannedAmount)}</small>
@@ -184,7 +184,10 @@ function renderIncome() {
   $("incomePlannedTotal").textContent = money(totals.incomePlanned);
   $("incomeActualTotal").textContent = money(totals.incomeActual);
   $("incomeList").innerHTML = data.incomes.length
-    ? data.incomes.map(item=>itemRow({...item,kind:"income"},"income",true,true)).join("")
+    ? data.incomes.map(item=>{
+        const isCarryover=item.sourceType==="carryover";
+        return itemRow({...item,kind:"income"},"income",!isCarryover,!isCarryover);
+      }).join("")
     : '<div class="empty">No hay ingresos registrados.</div>';
   bindRealizeChecks($("incomeList"));
   bindEditRows($("incomeList"));

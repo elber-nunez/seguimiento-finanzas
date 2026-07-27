@@ -60,6 +60,7 @@ export function normalizeState(state) {
       ? normalized.settings.categories.expense
       : [...DEFAULT_EXPENSE_CATEGORIES];
 
+  if (!normalized.settings.categories.income.includes("Saldo anterior")) normalized.settings.categories.income.unshift("Saldo anterior");
   if (!normalized.settings.categories.income.includes("Préstamo")) normalized.settings.categories.income.unshift("Préstamo");
   if (!normalized.settings.categories.expense.includes("Préstamo")) normalized.settings.categories.expense.unshift("Préstamo");
   if (!normalized.settings.categories.expense.includes("Pensión escolar")) normalized.settings.categories.expense.unshift("Pensión escolar");
@@ -92,25 +93,100 @@ export function ensureMonth(state, key) {
   return state.months[key];
 }
 
-export function getProfileData(state, keyOrKeys, profile) {
-  const keys = Array.isArray(keyOrKeys) ? keyOrKeys : [keyOrKeys];
+function rawProfileData(state,key,profile) {
+  const month = state.months?.[key];
   const result = { incomes:[], fixed:[], variable:[] };
+  if(!month) return result;
 
-  keys.filter(Boolean).forEach(key => {
-    const month = ensureMonth(state,key);
-    const owners = profile === "general" ? ["elber","mayra"] : [profile];
-    owners.forEach(owner => {
-      result.incomes.push(...month[owner].incomes.map(item=>({...item,periodKey:key})));
-      result.fixed.push(...month[owner].fixed.map(item=>({...item,periodKey:key})));
-      result.variable.push(...month[owner].variable.map(item=>({...item,periodKey:key})));
-    });
+  const owners = profile === "general" ? ["elber","mayra"] : [profile];
+  owners.forEach(owner => {
+    result.incomes.push(...(month[owner]?.incomes || []).map(item=>({...item,periodKey:key})));
+    result.fixed.push(...(month[owner]?.fixed || []).map(item=>({...item,periodKey:key})));
+    result.variable.push(...(month[owner]?.variable || []).map(item=>({...item,periodKey:key})));
   });
-
   return result;
 }
 
 const sum = (rows,field) => rows.reduce((total,item)=>total+Number(item[field]||0),0);
 const sumRealized = rows => rows.filter(item=>item.realized).reduce((total,item)=>total+Number(item.actualAmount||0),0);
+
+function previousKey(key) {
+  const [year,month] = key.split("-").map(Number);
+  const date = new Date(year,month-2,1);
+  return `${date.getFullYear()}-${String(date.getMonth()+1).padStart(2,"0")}`;
+}
+
+function monthLabel(key) {
+  const names=["enero","febrero","marzo","abril","mayo","junio","julio","agosto","septiembre","octubre","noviembre","diciembre"];
+  return names[Number(key.slice(5,7))-1];
+}
+
+function closingBalance(state,key,profile,visited=new Set()) {
+  if(visited.has(key)) return 0;
+  visited.add(key);
+
+  const data=rawProfileData(state,key,profile);
+  const hasData=data.incomes.length || data.fixed.length || data.variable.length;
+  const priorKey=previousKey(key);
+  const priorExists=Boolean(state.months?.[priorKey]);
+
+  if(!hasData && !priorExists) return 0;
+
+  const priorBalance=priorExists ? Math.max(0,closingBalance(state,priorKey,profile,visited)) : 0;
+  const incomeActual=sumRealized(data.incomes);
+  const fixedActual=sumRealized(data.fixed);
+  const variableActual=sumRealized(data.variable);
+
+  return priorBalance + incomeActual - fixedActual - variableActual;
+}
+
+export function carryoverAmount(state,key,profile) {
+  const priorKey=previousKey(key);
+  if(!state.months?.[priorKey]) return 0;
+  return Math.max(0,closingBalance(state,priorKey,profile));
+}
+
+function carryoverRecord(state,key,profile) {
+  const amount=carryoverAmount(state,key,profile);
+  if(amount<=0) return null;
+  const priorKey=previousKey(key);
+  return {
+    id:`carryover-${profile}-${key}`,
+    owner:profile==="general" ? "general" : profile,
+    concept:`Saldo restante de ${monthLabel(priorKey)}`,
+    category:"Saldo anterior",
+    plannedAmount:amount,
+    actualAmount:amount,
+    realized:true,
+    date:`${key}-01`,
+    periodKey:key,
+    sourceType:"carryover",
+    virtual:true
+  };
+}
+
+export function getProfileData(state, keyOrKeys, profile) {
+  const keys = Array.isArray(keyOrKeys) ? keyOrKeys : [keyOrKeys];
+  const result = { incomes:[], fixed:[], variable:[] };
+
+  keys.filter(Boolean).forEach(key => {
+    const data=rawProfileData(state,key,profile);
+    result.incomes.push(...data.incomes);
+    result.fixed.push(...data.fixed);
+    result.variable.push(...data.variable);
+  });
+
+  // El saldo anterior se incorpora una sola vez:
+  // - en una vista mensual, para el mes seleccionado;
+  // - en una vista anual, como saldo de apertura del primer mes del periodo.
+  const firstKey=keys.filter(Boolean)[0];
+  if(firstKey){
+    const carryover=carryoverRecord(state,firstKey,profile);
+    if(carryover) result.incomes.unshift(carryover);
+  }
+
+  return result;
+}
 
 export function calculateTotals(state,key,profile) {
   const data = getProfileData(state,key,profile);
