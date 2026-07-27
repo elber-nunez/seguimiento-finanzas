@@ -113,3 +113,11 @@ h1,h2,p{margin-top:0}
   .loan-card-grid{grid-template-columns:repeat(2,1fr)}
   .loan-dashboard-values{grid-template-columns:1fr 1fr}
 }
+
+.fixed-filter-bar{display:flex;align-items:center;justify-content:flex-end;gap:9px;max-width:900px;margin:0 0 12px}
+.fixed-filter-bar label{color:var(--muted);font-size:.75rem;font-weight:800}
+.fixed-filter-bar select{min-width:210px;padding:10px 12px;border:1px solid var(--line);border-radius:11px;background:#fff;font-weight:750}
+@media(max-width:560px){
+  .fixed-filter-bar{align-items:stretch;flex-direction:column}
+  .fixed-filter-bar select{width:100%}
+}

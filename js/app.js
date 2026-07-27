@@ -5,7 +5,7 @@ import { createEmptyState, normalizeState, ensureMonth, getProfileData, calculat
 import { initNavigation, showView } from "./navigation.js";
 import { renderDashboard } from "./dashboard.js";
 import { initHistoryFilters, renderHistory, renderHistoryCategoryOptions } from "./history.js";
-import { createLoan, updateLoanMetadata, payoffLoan, deleteLoan, loanMetrics, loanRecords } from "./loans.js";
+import { createLoan, updateLoanMetadata, payoffLoan, deleteLoan, loanMetrics, loanRecords, applyFlexiblePayment, flexiblePrincipalOutstanding, effectiveLoanTotal } from "./loans.js";
 
 let currentUser = null;
 let currentUserProfile = null;
@@ -125,9 +125,19 @@ function renderFixed() {
   $("fixedPlanned").textContent=money(totals.fixedPlanned);
   $("fixedPaid").textContent=money(totals.fixedActual);
   $("fixedPending").textContent=money(data.fixed.filter(item=>!item.realized).reduce((sum,item)=>sum+Number(item.plannedAmount||0),0));
-  $("fixedList").innerHTML = data.fixed.length
-    ? data.fixed.map(item=>itemRow({...item,kind:"fixed"},"expense",true,true)).join("")
-    : '<div class="empty">No hay gastos fijos planificados.</div>';
+
+  const currentFilter=$("fixedCategoryFilter").value || "all";
+  const categories=[...new Set(data.fixed.map(item=>item.category).filter(Boolean))].sort((x,y)=>x.localeCompare(y,"es"));
+  $("fixedCategoryFilter").innerHTML='<option value="all">Todas las categorías</option>'+categories.map(category=>`<option>${escapeHtml(category)}</option>`).join("");
+  $("fixedCategoryFilter").value=categories.includes(currentFilter)?currentFilter:"all";
+
+  const filtered=$("fixedCategoryFilter").value==="all"
+    ? data.fixed
+    : data.fixed.filter(item=>item.category===$("fixedCategoryFilter").value);
+
+  $("fixedList").innerHTML = filtered.length
+    ? filtered.map(item=>itemRow({...item,kind:"fixed"},"expense",true,true)).join("")
+    : '<div class="empty">No hay gastos fijos para esta categoría.</div>';
   bindRealizeChecks($("fixedList"));
   bindEditRows($("fixedList"));
 }
@@ -174,9 +184,13 @@ async function updateRealized(kind,id,owner,realized,checkElement) {
       checkElement.checked=false;
       return;
     }
-    item.realized=true;
-    item.actualAmount=actual;
-    item.date=today();
+    if(item.sourceType==="loan-installment" && item.loanType==="flexible"){
+      applyFlexiblePayment(state,item.loanId,item,actual);
+    }else{
+      item.realized=true;
+      item.actualAmount=actual;
+      item.date=today();
+    }
   }else{
     if(!confirm("¿Volver a dejar este registro como previsto y pendiente?")){
       checkElement.checked=true;
@@ -184,6 +198,12 @@ async function updateRealized(kind,id,owner,realized,checkElement) {
     }
     item.realized=false;
     item.actualAmount=0;
+    if(item.loanType==="flexible"){
+      item.actualInterest=0;
+      item.actualPrincipal=0;
+      const loan=(state.loans||[]).find(row=>row.id===item.loanId);
+      if(loan) loan.status="active";
+    }
   }
   renderAll();
   await persist();
@@ -397,23 +417,27 @@ function renderLoans() {
   $("loanList").innerHTML=metrics.loans.length ? metrics.loans.map(loan=>{
     const records=loanRecords(state,loan.id);
     const paid=records.installments.filter(({item})=>item.realized).reduce((sum,{item})=>sum+Number(item.actualAmount||0),0);
-    const pending=Math.max(0,loan.totalRepayment-paid);
+    const effectiveTotal=loan.type==="fixed" ? effectiveLoanTotal(loan) : paid+flexiblePrincipalOutstanding(state,loan.id);
+    const pending=loan.type==="fixed"
+      ? Math.max(0,effectiveTotal-paid)
+      : flexiblePrincipalOutstanding(state,loan.id);
     const paidCount=records.installments.filter(({item})=>item.realized).length;
+    const typeLabel=loan.type==="flexible"?"Interés + abono flexible":"Cuotas fijas";
     return `<article class="loan-card" data-loan-id="${loan.id}">
       <div class="loan-card-heading">
         <div>
           <div class="loan-title">${escapeHtml(loan.concept)} <span class="owner-tag">${NAMES[loan.owner]}</span></div>
-          <div class="item-meta">${loan.status==="paid"?"Cancelado en su totalidad":"Préstamo activo"} · Primera cuota ${loan.firstPaymentMonthKey}</div>
+          <div class="item-meta">${typeLabel} · ${loan.status==="paid"?"Cancelado en su totalidad":"Préstamo activo"} · Primera cuota ${loan.firstPaymentMonthKey}</div>
         </div>
         <span class="loan-status ${loan.status==="paid"?"paid":"active"}">${loan.status==="paid"?"Cancelado":"Activo"}</span>
       </div>
       <div class="loan-card-grid">
         <div><span>Recibido</span><strong>${money(loan.principal)}</strong></div>
-        <div><span>Total</span><strong>${money(loan.totalRepayment)}</strong></div>
-        <div><span>Interés</span><strong>${money(loan.totalRepayment-loan.principal)}</strong></div>
+        <div><span>${loan.type==="fixed"?"Total final":"Interés mensual"}</span><strong>${money(loan.type==="fixed"?effectiveTotal:loan.monthlyInterest)}</strong></div>
         <div><span>Pagado</span><strong>${money(paid)}</strong></div>
-        <div><span>Pendiente</span><strong>${money(pending)}</strong></div>
-        <div><span>Cuotas pagadas</span><strong>${paidCount} / ${loan.installments}</strong></div>
+        <div><span>${loan.type==="fixed"?"Pendiente":"Capital pendiente"}</span><strong>${money(pending)}</strong></div>
+        <div><span>Pagos realizados</span><strong>${paidCount}</strong></div>
+        <div><span>Tipo</span><strong>${loan.type==="fixed"?"Fijo":"Flexible"}</strong></div>
       </div>
     </article>`;
   }).join("") : '<div class="empty">No hay préstamos registrados.</div>';
@@ -425,17 +449,39 @@ function renderLoans() {
 
 function updateLoanPreview() {
   const principal=Number($("loanPrincipal").value||0);
-  const total=Number($("loanTotalRepayment").value||0);
+  const type=$("loanType").value;
   const installments=Math.max(1,Number($("loanInstallments").value||1));
-  $("loanInterestPreview").textContent=money(Math.max(0,total-principal));
-  $("loanInstallmentPreview").textContent=money(total/installments);
+  if(type==="fixed"){
+    const total=Number($("loanTotalRepayment").value||0);
+    $("loanInterestPreview").textContent=money(Math.max(0,total-principal));
+    $("loanInstallmentPreview").textContent=money(total/installments);
+  }else{
+    const interest=Number($("loanMonthlyInterest").value||0);
+    const capital=Number($("loanPlannedPrincipal").value||0);
+    $("loanInterestPreview").textContent=money(interest*installments);
+    $("loanInstallmentPreview").textContent=money(interest+capital);
+  }
+}
+
+function toggleLoanTypeFields() {
+  const flexible=$("loanType").value==="flexible";
+  $("loanTotalRepaymentField").classList.toggle("hidden",flexible);
+  $("loanMonthlyInterestField").classList.toggle("hidden",!flexible);
+  $("loanPlannedPrincipalField").classList.toggle("hidden",!flexible);
+  $("loanInstallmentsLabel").textContent=flexible?"Plazo referencial en meses":"Número de cuotas";
+  $("loanTotalRepayment").required=!flexible;
+  $("loanMonthlyInterest").required=flexible;
+  $("loanPlannedPrincipal").required=flexible;
+  updateLoanPreview();
 }
 
 function togglePayoffFields() {
   const checked=$("loanPaidOff").checked;
   $("loanPayoffMonthField").classList.toggle("hidden",!checked);
+  $("loanAdjustedTotalField").classList.toggle("hidden",!checked);
   $("loanPayoffHelp").classList.toggle("hidden",!checked);
   $("loanPayoffMonth").required=checked;
+  $("loanAdjustedTotal").required=checked;
 }
 
 function openLoanModal(id=null) {
@@ -444,6 +490,7 @@ function openLoanModal(id=null) {
   $("loanOwner").value=selectedOwner();
   $("loanFirstPaymentMonth").value=currentKey();
   $("loanPayoffMonth").value=currentKey();
+  $("loanType").value="fixed";
   $("loanPaidOffField").classList.toggle("hidden",!id);
   $("deleteLoanBtn").classList.toggle("hidden",!id);
   $("loanModalTitle").textContent=id?"Editar préstamo":"Agregar préstamo";
@@ -453,8 +500,11 @@ function openLoanModal(id=null) {
     if(!loan) return;
     $("loanOwner").value=loan.owner;
     $("loanConcept").value=loan.concept;
+    $("loanType").value=loan.type||"fixed";
     $("loanPrincipal").value=loan.principal;
-    $("loanTotalRepayment").value=loan.totalRepayment;
+    $("loanTotalRepayment").value=loan.totalRepayment||"";
+    $("loanMonthlyInterest").value=loan.monthlyInterest||"";
+    $("loanPlannedPrincipal").value=loan.plannedPrincipal||"";
     $("loanInstallments").value=loan.installments;
     $("loanFirstPaymentMonth").value=loan.firstPaymentMonthKey;
     $("loanPrincipal").disabled=true;
@@ -462,11 +512,14 @@ function openLoanModal(id=null) {
     $("loanInstallments").disabled=true;
     $("loanFirstPaymentMonth").disabled=true;
     $("loanOwner").disabled=true;
+    $("loanType").disabled=true;
     $("loanPaidOff").checked=loan.status==="paid";
     $("loanPayoffMonth").value=loan.payoffMonthKey||currentKey();
+    $("loanAdjustedTotal").value=loan.type==="fixed" ? effectiveLoanTotal(loan) : flexiblePrincipalOutstanding(state,loan.id)+Number(loan.monthlyInterest||0);
   }else{
-    ["loanPrincipal","loanTotalRepayment","loanInstallments","loanFirstPaymentMonth","loanOwner"].forEach(id=>$ (id).disabled=false);
+    ["loanPrincipal","loanTotalRepayment","loanInstallments","loanFirstPaymentMonth","loanOwner","loanType","loanMonthlyInterest","loanPlannedPrincipal"].forEach(id=>$(id).disabled=false);
   }
+  toggleLoanTypeFields();
   togglePayoffFields();
   updateLoanPreview();
   $("loanModal").classList.add("open");
@@ -480,13 +533,17 @@ async function saveLoan(event) {
   const values={
     owner:$("loanOwner").value,
     concept:$("loanConcept").value.trim(),
+    type:$("loanType").value,
     principal:Number($("loanPrincipal").value),
-    totalRepayment:Number($("loanTotalRepayment").value),
+    totalRepayment:Number($("loanTotalRepayment").value||0),
+    monthlyInterest:Number($("loanMonthlyInterest").value||0),
+    plannedPrincipal:Number($("loanPlannedPrincipal").value||0),
     installments:Number($("loanInstallments").value),
     receivedMonthKey:currentKey(),
     firstPaymentMonthKey:$("loanFirstPaymentMonth").value
   };
-  if(values.totalRepayment<values.principal) return alert("El total a devolver no puede ser menor que el monto recibido.");
+  if(values.type==="fixed" && values.totalRepayment<values.principal) return alert("El total a devolver no puede ser menor que el monto recibido.");
+  if(values.type==="flexible" && values.monthlyInterest<0) return alert("El interés mensual no puede ser negativo.");
 
   if(!id){
     createLoan(state,values);
@@ -494,7 +551,8 @@ async function saveLoan(event) {
     updateLoanMetadata(state,id,values);
     const loan=(state.loans||[]).find(item=>item.id===id);
     if($("loanPaidOff").checked && loan.status!=="paid"){
-      const payoffAmount=payoffLoan(state,id,$("loanPayoffMonth").value);
+      const adjustedTotal=Number($("loanAdjustedTotal").value);
+      const payoffAmount=payoffLoan(state,id,$("loanPayoffMonth").value,adjustedTotal);
       alert(`Cancelación total registrada por ${money(payoffAmount)}. Las cuotas posteriores fueron eliminadas.`);
     }
   }
@@ -517,6 +575,7 @@ function bindUi() {
   initNavigation();
   initHistoryFilters(renderAll);
   $("profileSelect").addEventListener("change",renderAll);
+  $("fixedCategoryFilter").addEventListener("change",renderFixed);
   $("googleLoginBtn").addEventListener("click",async()=>{
     $("loginMessage").textContent="";
     try{await loginWithGoogle();}catch(error){$("loginMessage").textContent=error.message;}
@@ -553,7 +612,8 @@ function bindUi() {
   $("loanModal").addEventListener("click",event=>event.target===$("loanModal")&&closeLoanModal());
   $("loanForm").addEventListener("submit",saveLoan);
   $("deleteLoanBtn").addEventListener("click",removeLoan);
-  ["loanPrincipal","loanTotalRepayment","loanInstallments"].forEach(id=>$(id).addEventListener("input",updateLoanPreview));
+  ["loanPrincipal","loanTotalRepayment","loanInstallments","loanMonthlyInterest","loanPlannedPrincipal"].forEach(id=>$(id).addEventListener("input",updateLoanPreview));
+  $("loanType").addEventListener("change",toggleLoanTypeFields);
   $("loanPaidOff").addEventListener("change",togglePayoffFields);
 }
 

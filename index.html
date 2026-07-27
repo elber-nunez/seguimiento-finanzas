@@ -4,7 +4,7 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
   <meta name="theme-color" content="#0f172a">
-  <title>Finanzas - V9</title>
+  <title>Finanzas - V10</title>
   <link rel="stylesheet" href="css/styles.css">
   <link rel="stylesheet" href="css/layout.css">
   <link rel="stylesheet" href="css/dashboard.css">
@@ -27,7 +27,7 @@
     <aside class="sidebar">
       <div class="sidebar-brand">
         <strong>Finanzas</strong>
-        <span>Elber y Mayra · V9</span>
+        <span>Elber y Mayra · V10</span>
       </div>
 
       <nav class="main-menu">
@@ -130,6 +130,12 @@
             <div><span>Previsto</span><strong id="fixedPlanned">S/ 0,00</strong></div>
             <div><span>Real</span><strong id="fixedPaid">S/ 0,00</strong></div>
             <div><span>Pendiente previsto</span><strong id="fixedPending">S/ 0,00</strong></div>
+          </div>
+          <div class="fixed-filter-bar">
+            <label for="fixedCategoryFilter">Filtrar por categoría</label>
+            <select id="fixedCategoryFilter">
+              <option value="all">Todas las categorías</option>
+            </select>
           </div>
           <div id="fixedList" class="check-list"></div>
         </section>
@@ -301,19 +307,34 @@
           <input id="loanConcept" type="text" placeholder="Ejemplo: Préstamo personal" required>
         </label>
 
+        <label>Tipo de préstamo
+          <select id="loanType">
+            <option value="fixed">Cuotas fijas</option>
+            <option value="flexible">Interés mensual + abono flexible</option>
+          </select>
+        </label>
+
         <div class="form-two-columns">
           <label>Monto recibido
             <input id="loanPrincipal" type="number" min="0.01" step="0.01" required>
           </label>
 
-          <label>Total a devolver
+          <label id="loanTotalRepaymentField">Total original a devolver
             <input id="loanTotalRepayment" type="number" min="0.01" step="0.01" required>
+          </label>
+
+          <label id="loanMonthlyInterestField" class="hidden">Interés mensual fijo
+            <input id="loanMonthlyInterest" type="number" min="0" step="0.01">
           </label>
         </div>
 
         <div class="form-two-columns">
-          <label>Número de cuotas
+          <label><span id="loanInstallmentsLabel">Número de cuotas</span>
             <input id="loanInstallments" type="number" min="1" max="120" step="1" required>
+          </label>
+
+          <label id="loanPlannedPrincipalField" class="hidden">Abono previsto al capital por mes
+            <input id="loanPlannedPrincipal" type="number" min="0" step="0.01">
           </label>
 
           <label>Primera cuota
@@ -335,7 +356,11 @@
           <input id="loanPayoffMonth" type="month">
         </label>
 
-        <p id="loanPayoffHelp" class="field-help hidden">La cuota del mes elegido se ajustará al saldo restante y las cuotas posteriores se eliminarán.</p>
+        <label id="loanAdjustedTotalField" class="hidden">Nuevo total final a devolver
+          <input id="loanAdjustedTotal" type="number" min="0" step="0.01">
+        </label>
+
+        <p id="loanPayoffHelp" class="field-help hidden">El sistema descontará lo ya pagado, ajustará el pago del mes elegido y eliminará las cuotas posteriores.</p>
 
         <button class="primary-btn full-btn" type="submit">Guardar préstamo</button>
         <button id="deleteLoanBtn" class="danger-btn full-btn hidden" type="button">Eliminar préstamo</button>

@@ -116,3 +116,20 @@ Los dos usuarios autorizados pueden visualizar y actualizar los datos.
   - La cuota de ese mes se ajusta al saldo restante.
   - Las cuotas posteriores se eliminan.
 - Dashboard actualizado con préstamos activos, deuda pendiente y cuotas del mes.
+
+
+## Versión 10 — Préstamos flexibles y filtros
+
+- Título visible: `Finanzas - V10`.
+- Filtro por categoría en Gastos fijos.
+- Préstamos de cuotas fijas:
+  - Permiten indicar un nuevo total final al cancelar anticipadamente.
+  - El sistema descuenta los pagos anteriores y elimina cuotas futuras.
+- Préstamos con interés mensual y abono flexible:
+  - Interés mensual fijo.
+  - Abono previsto al capital.
+  - El pago real cubre primero el interés y luego reduce el capital.
+  - Si solo se paga el interés, el capital se mantiene.
+  - El capital no pagado no se duplica en el mes siguiente.
+  - Si al terminar el plazo referencial aún queda capital, se genera el siguiente pago.
+- Dashboard de préstamos actualizado.
