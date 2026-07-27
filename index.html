@@ -82,16 +82,18 @@
           </div>
 
           <article class="hero-card">
-            <span>Disponible actualmente</span>
+            <span>Saldo real disponible</span>
             <strong id="homeAvailable">S/ 0,00</strong>
-            <small id="homeAvailableDetail">Ingresos menos gastos ya realizados</small>
+            <small id="homeAvailableDetail">Ingresos reales menos gastos reales</small>
           </article>
 
           <div class="kpi-grid">
-            <article class="kpi-card"><span>Ingresos</span><strong id="homeIncome">S/ 0,00</strong><small>Registrados este mes</small></article>
-            <article class="kpi-card"><span>Pagado</span><strong id="homePaid">S/ 0,00</strong><small>Fijos y variables realizados</small></article>
-            <article class="kpi-card"><span>Pendiente</span><strong id="homePending">S/ 0,00</strong><small>Gastos fijos sin marcar</small></article>
-            <article class="kpi-card"><span>Saldo esperado</span><strong id="homeExpected">S/ 0,00</strong><small>Proyección al cierre del mes</small></article>
+            <article class="kpi-card"><span>Ingresos previstos</span><strong id="homeIncomePlanned">S/ 0,00</strong><small>Planificados para el mes</small></article>
+            <article class="kpi-card"><span>Ingresos reales</span><strong id="homeIncomeActual">S/ 0,00</strong><small>Ya recibidos</small></article>
+            <article class="kpi-card"><span>Gastos previstos</span><strong id="homeExpensePlanned">S/ 0,00</strong><small>Fijos y variables planificados</small></article>
+            <article class="kpi-card"><span>Gastos reales</span><strong id="homeExpenseActual">S/ 0,00</strong><small>Ya pagados</small></article>
+            <article class="kpi-card"><span>Saldo previsto</span><strong id="homeExpected">S/ 0,00</strong><small>Proyección al cierre del mes</small></article>
+            <article class="kpi-card"><span>Diferencia</span><strong id="homeVariance">S/ 0,00</strong><small>Saldo real menos saldo previsto</small></article>
           </div>
 
           <div class="two-column-layout">
@@ -111,7 +113,10 @@
             <div><h1>Ingresos</h1><p>Sueldo, trabajos externos, bonos y otros ingresos del mes.</p></div>
             <button id="addIncomeBtn" class="primary-btn">+ Agregar ingreso</button>
           </div>
-          <div class="section-total"><span>Total de ingresos</span><strong id="incomeTotal">S/ 0,00</strong></div>
+          <div class="mini-kpis two-kpis">
+            <div><span>Ingresos previstos</span><strong id="incomePlannedTotal">S/ 0,00</strong></div>
+            <div><span>Ingresos reales</span><strong id="incomeActualTotal">S/ 0,00</strong></div>
+          </div>
           <div id="incomeList" class="item-list large-list"></div>
         </section>
 
@@ -121,9 +126,9 @@
             <button id="addFixedBtn" class="primary-btn">+ Agregar gasto fijo</button>
           </div>
           <div class="mini-kpis">
-            <div><span>Planificado</span><strong id="fixedPlanned">S/ 0,00</strong></div>
-            <div><span>Pagado</span><strong id="fixedPaid">S/ 0,00</strong></div>
-            <div><span>Pendiente</span><strong id="fixedPending">S/ 0,00</strong></div>
+            <div><span>Previsto</span><strong id="fixedPlanned">S/ 0,00</strong></div>
+            <div><span>Real</span><strong id="fixedPaid">S/ 0,00</strong></div>
+            <div><span>Pendiente previsto</span><strong id="fixedPending">S/ 0,00</strong></div>
           </div>
           <div id="fixedList" class="check-list"></div>
         </section>
@@ -133,20 +138,24 @@
             <div><h1>Gastos variables</h1><p>Compras o pagos no contemplados inicialmente.</p></div>
             <button id="addVariableBtn" class="primary-btn">+ Agregar gasto variable</button>
           </div>
-          <div class="section-total"><span>Total de gastos variables</span><strong id="variableTotal">S/ 0,00</strong></div>
+          <div class="mini-kpis two-kpis">
+            <div><span>Variables previstos</span><strong id="variablePlannedTotal">S/ 0,00</strong></div>
+            <div><span>Variables reales</span><strong id="variableActualTotal">S/ 0,00</strong></div>
+          </div>
           <div id="variableList" class="item-list large-list"></div>
         </section>
 
         <section id="summaryView" class="view">
           <div class="page-heading"><div><h1>Resumen mensual</h1><p>Planificación completa del mes seleccionado.</p></div></div>
           <div class="summary-grid">
-            <article><span>Ingresos</span><strong id="summaryIncome">S/ 0,00</strong></article>
-            <article><span>Gastos fijos previstos</span><strong id="summaryFixed">S/ 0,00</strong></article>
-            <article><span>Gastos variables</span><strong id="summaryVariable">S/ 0,00</strong></article>
-            <article><span>Gastos realizados</span><strong id="summaryPaid">S/ 0,00</strong></article>
+            <article><span>Ingresos previstos</span><strong id="summaryIncomePlanned">S/ 0,00</strong></article>
+            <article><span>Ingresos reales</span><strong id="summaryIncomeActual">S/ 0,00</strong></article>
+            <article><span>Gastos previstos</span><strong id="summaryExpensePlanned">S/ 0,00</strong></article>
+            <article><span>Gastos reales</span><strong id="summaryExpenseActual">S/ 0,00</strong></article>
             <article><span>Gastos pendientes</span><strong id="summaryPending">S/ 0,00</strong></article>
-            <article><span>Disponible hoy</span><strong id="summaryAvailable">S/ 0,00</strong></article>
-            <article class="highlight"><span>Saldo esperado fin de mes</span><strong id="summaryExpected">S/ 0,00</strong></article>
+            <article><span>Saldo real actual</span><strong id="summaryAvailable">S/ 0,00</strong></article>
+            <article class="highlight"><span>Saldo previsto fin de mes</span><strong id="summaryExpected">S/ 0,00</strong></article>
+            <article class="highlight secondary-highlight"><span>Diferencia real vs previsto</span><strong id="summaryVariance">S/ 0,00</strong></article>
           </div>
         </section>
 
@@ -173,7 +182,7 @@
             <h2>Comparación Elber y Mayra</h2>
             <div class="table-scroll">
               <table>
-                <thead><tr><th>Persona</th><th>Ingresos</th><th>Gastado</th><th>Pendiente</th><th>Disponible</th><th>Saldo esperado</th></tr></thead>
+                <thead><tr><th>Persona</th><th>Ing. previsto</th><th>Ing. real</th><th>Gasto previsto</th><th>Gasto real</th><th>Saldo previsto</th><th>Saldo real</th></tr></thead>
                 <tbody id="comparisonTable"></tbody>
               </table>
             </div>
@@ -265,8 +274,12 @@
           <select id="recordCategory"></select>
         </label>
 
-        <label>Monto
-          <input id="recordAmount" type="number" min="0" step="0.01" required>
+        <label>Monto previsto
+          <input id="recordPlannedAmount" type="number" min="0" step="0.01" required>
+        </label>
+
+        <label id="actualAmountField" class="hidden">Monto real
+          <input id="recordActualAmount" type="number" min="0" step="0.01">
         </label>
 
         <label id="dateField">Fecha
@@ -274,8 +287,8 @@
         </label>
 
         <label id="paidField" class="inline-check">
-          <input id="recordPaid" type="checkbox">
-          Marcar como pagado
+          <input id="recordRealized" type="checkbox">
+          Marcar como recibido o pagado
         </label>
 
         <button class="primary-btn full-btn" type="submit">Guardar</button>

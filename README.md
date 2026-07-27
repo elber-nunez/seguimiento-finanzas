@@ -31,7 +31,7 @@ Edita:
 
 Reemplaza:
 
-`mayra.barrera.g01@gmail.com`
+`REEMPLAZAR_CORREO_DE_MAYRA@gmail.com`
 
 por el correo real de Google de Mayra, en minúsculas.
 
@@ -83,3 +83,19 @@ Los dos usuarios autorizados pueden visualizar y actualizar los datos.
 - Los gastos fijos copiados comienzan desmarcados.
 - Categorías de ingresos y gastos editables desde Configuración.
 - Los registros anteriores conservan la categoría aunque se elimine de las opciones nuevas.
+
+
+## Versión 8 — Previsto y real
+
+- Todo ingreso, gasto fijo o gasto variable nuevo se crea como **previsto**.
+- Al marcarlo como recibido o pagado, se solicita el **monto real**.
+- El monto real puede ser igual o diferente al previsto.
+- Los dashboards comparan ingresos previstos/reales, gastos previstos/reales y saldos previsto/real.
+- Los datos anteriores se migran automáticamente sin borrarse.
+- Se agregó el correo autorizado de Mayra: `mayra.barrera.g01@gmail.com`.
+
+### Interpretación
+
+- **Saldo previsto:** ingresos previstos menos gastos previstos.
+- **Saldo real:** ingresos realmente recibidos menos gastos realmente pagados.
+- **Diferencia:** saldo real menos saldo previsto.

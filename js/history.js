@@ -30,7 +30,10 @@ export function renderHistory(state,key,profile) {
         <div class="item-title">${escapeHtml(item.concept)} <span class="owner-tag">${NAMES[item.owner]}</span></div>
         <div class="item-meta">${escapeHtml(item.category)} · ${formatDate(item.date)}</div>
       </div>
-      <div class="item-amount ${item.type==="income"?"income-color":"expense-color"}">${item.type==="income"?"+":"-"} ${money(item.amount)}</div>
+      <div class="amount-comparison">
+        <small>Previsto ${money(item.plannedAmount)}</small>
+        <strong class="${item.type==="income"?"income-color":"expense-color"}">${item.type==="income"?"+":"-"} ${money(item.actualAmount)}</strong>
+      </div>
     </article>
   `).join("") : '<div class="empty">No hay movimientos para estos filtros.</div>';
 }

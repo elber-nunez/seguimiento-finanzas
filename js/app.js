@@ -67,71 +67,136 @@ function renderAll() {
 function renderHome() {
   const totals = calculateTotals(state,currentKey(),selectedProfile);
   $("homeAvailable").textContent = money(totals.available);
-  $("homeIncome").textContent = money(totals.income);
-  $("homePaid").textContent = money(totals.paid);
-  $("homePending").textContent = money(totals.pending);
+  $("homeIncomePlanned").textContent = money(totals.incomePlanned);
+  $("homeIncomeActual").textContent = money(totals.incomeActual);
+  $("homeExpensePlanned").textContent = money(totals.expensePlanned);
+  $("homeExpenseActual").textContent = money(totals.expenseActual);
   $("homeExpected").textContent = money(totals.expected);
+  $("homeVariance").textContent = money(totals.variance);
+  $("homeVariance").className = totals.variance >= 0 ? "positive-value" : "negative-value";
 
   const data = getProfileData(state,currentKey(),selectedProfile);
-  const pending = data.fixed.filter(item=>!item.paid).slice(0,5);
-  $("homePendingList").innerHTML = pending.length ? pending.map(item=>itemRow(item,"expense",false)).join("") : '<div class="empty">No hay gastos pendientes.</div>';
+  const pending = [...data.fixed,...data.variable].filter(item=>!item.realized).slice(0,5);
+  $("homePendingList").innerHTML = pending.length
+    ? pending.map(item=>itemRow({...item,kind:data.fixed.includes(item)?"fixed":"variable"},"expense",false)).join("")
+    : '<div class="empty">No hay gastos pendientes.</div>';
 
   const recent = getHistory(state,currentKey(),selectedProfile).slice(0,5);
-  $("homeRecentList").innerHTML = recent.length ? recent.map(item=>itemRow(item,item.type,false)).join("") : '<div class="empty">No hay movimientos realizados.</div>';
+  $("homeRecentList").innerHTML = recent.length
+    ? recent.map(item=>itemRow(item,item.type,false)).join("")
+    : '<div class="empty">No hay movimientos realizados.</div>';
 }
 
-function itemRow(item,type,editable=true) {
+function itemRow(item,type,editable=true,withCheck=false) {
   const editAttrs = editable ? `data-edit-id="${item.id}" data-kind="${item.kind || type}" data-owner="${item.owner}"` : "";
-  return `<article class="item-row" ${editAttrs}>
-    <div class="item-content"><div class="item-title">${escapeHtml(item.concept)} <span class="owner-tag">${NAMES[item.owner]}</span></div>
-    <div class="item-meta">${escapeHtml(item.category || "Ingreso")} · ${formatDate(item.date)}</div></div>
-    <div class="item-amount ${type==="income"?"income-color":"expense-color"}">${type==="income"?"+":"-"} ${money(item.amount)}</div>
+  const check = withCheck
+    ? `<input type="checkbox" data-realize-id="${item.id}" data-kind="${item.kind || type}" data-owner="${item.owner}" ${item.realized?"checked":""}>`
+    : "";
+  return `<article class="${withCheck?"check-row":"item-row"} ${item.realized?"paid":""}">
+    ${check}
+    <div class="item-content" ${editAttrs}>
+      <div class="item-title">${escapeHtml(item.concept)} <span class="owner-tag">${NAMES[item.owner]}</span> <span class="status-tag ${item.realized?"real":"planned"}">${item.realized?"Real":"Previsto"}</span></div>
+      <div class="item-meta">${escapeHtml(item.category || "Ingreso")} · ${formatDate(item.date)}</div>
+    </div>
+    <div class="amount-comparison">
+      <small>Prev. ${money(item.plannedAmount)}</small>
+      <strong class="${type==="income"?"income-color":"expense-color"}">${item.realized?`Real ${money(item.actualAmount)}`:"Pendiente"}</strong>
+    </div>
   </article>`;
 }
 
 function renderIncome() {
   const data = getProfileData(state,currentKey(),selectedProfile);
-  const total = data.incomes.reduce((sum,item)=>sum+Number(item.amount||0),0);
-  $("incomeTotal").textContent = money(total);
-  $("incomeList").innerHTML = data.incomes.length ? data.incomes.map(item=>itemRow({...item,kind:"income"},"income")).join("") : '<div class="empty">No hay ingresos registrados.</div>';
+  const totals = calculateTotals(state,currentKey(),selectedProfile);
+  $("incomePlannedTotal").textContent = money(totals.incomePlanned);
+  $("incomeActualTotal").textContent = money(totals.incomeActual);
+  $("incomeList").innerHTML = data.incomes.length
+    ? data.incomes.map(item=>itemRow({...item,kind:"income"},"income",true,true)).join("")
+    : '<div class="empty">No hay ingresos registrados.</div>';
+  bindRealizeChecks($("incomeList"));
   bindEditRows($("incomeList"));
 }
 
 function renderFixed() {
   const data = getProfileData(state,currentKey(),selectedProfile);
-  const planned = data.fixed.reduce((sum,item)=>sum+Number(item.amount||0),0);
-  const paid = data.fixed.filter(item=>item.paid).reduce((sum,item)=>sum+Number(item.amount||0),0);
-  $("fixedPlanned").textContent=money(planned);$("fixedPaid").textContent=money(paid);$("fixedPending").textContent=money(planned-paid);
-  $("fixedList").innerHTML = data.fixed.length ? data.fixed.map(item=>`
-    <article class="check-row ${item.paid?"paid":""}">
-      <input type="checkbox" data-check-id="${item.id}" data-owner="${item.owner}" ${item.paid?"checked":""}>
-      <div class="item-content" data-edit-id="${item.id}" data-kind="fixed" data-owner="${item.owner}">
-        <div class="item-title">${escapeHtml(item.concept)} <span class="owner-tag">${NAMES[item.owner]}</span></div>
-        <div class="item-meta">${escapeHtml(item.category)} · ${formatDate(item.date)}</div>
-      </div>
-      <div class="item-amount">${money(item.amount)}</div>
-    </article>`).join("") : '<div class="empty">No hay gastos fijos planificados.</div>';
-
-  document.querySelectorAll("[data-check-id]").forEach(check=>check.addEventListener("change",async()=>{
-    const item = ensureMonth(state,currentKey())[check.dataset.owner].fixed.find(row=>row.id===check.dataset.checkId);
-    if(item){ item.paid=check.checked; item.date=today(); renderAll(); await persist(); }
-  }));
+  const totals = calculateTotals(state,currentKey(),selectedProfile);
+  $("fixedPlanned").textContent=money(totals.fixedPlanned);
+  $("fixedPaid").textContent=money(totals.fixedActual);
+  $("fixedPending").textContent=money(data.fixed.filter(item=>!item.realized).reduce((sum,item)=>sum+Number(item.plannedAmount||0),0));
+  $("fixedList").innerHTML = data.fixed.length
+    ? data.fixed.map(item=>itemRow({...item,kind:"fixed"},"expense",true,true)).join("")
+    : '<div class="empty">No hay gastos fijos planificados.</div>';
+  bindRealizeChecks($("fixedList"));
   bindEditRows($("fixedList"));
 }
 
 function renderVariable() {
   const data = getProfileData(state,currentKey(),selectedProfile);
-  $("variableTotal").textContent = money(data.variable.reduce((sum,item)=>sum+Number(item.amount||0),0));
-  $("variableList").innerHTML = data.variable.length ? data.variable.map(item=>itemRow({...item,kind:"variable"},"expense")).join("") : '<div class="empty">No hay gastos variables registrados.</div>';
+  const totals = calculateTotals(state,currentKey(),selectedProfile);
+  $("variablePlannedTotal").textContent = money(totals.variablePlanned);
+  $("variableActualTotal").textContent = money(totals.variableActual);
+  $("variableList").innerHTML = data.variable.length
+    ? data.variable.map(item=>itemRow({...item,kind:"variable"},"expense",true,true)).join("")
+    : '<div class="empty">No hay gastos variables registrados.</div>';
+  bindRealizeChecks($("variableList"));
   bindEditRows($("variableList"));
 }
 
 function renderSummary() {
   const totals = calculateTotals(state,currentKey(),selectedProfile);
-  $("summaryIncome").textContent=money(totals.income);$("summaryFixed").textContent=money(totals.fixedPlanned);
-  $("summaryVariable").textContent=money(totals.variable);$("summaryPaid").textContent=money(totals.paid);
-  $("summaryPending").textContent=money(totals.pending);$("summaryAvailable").textContent=money(totals.available);
+  $("summaryIncomePlanned").textContent=money(totals.incomePlanned);
+  $("summaryIncomeActual").textContent=money(totals.incomeActual);
+  $("summaryExpensePlanned").textContent=money(totals.expensePlanned);
+  $("summaryExpenseActual").textContent=money(totals.expenseActual);
+  $("summaryPending").textContent=money(totals.pendingExpenses);
+  $("summaryAvailable").textContent=money(totals.available);
   $("summaryExpected").textContent=money(totals.expected);
+  $("summaryVariance").textContent=money(totals.variance);
+  $("summaryVariance").className = totals.variance >= 0 ? "positive-value" : "negative-value";
+}
+
+async function updateRealized(kind,id,owner,realized,checkElement) {
+  const property=kind==="income"?"incomes":kind;
+  const item=ensureMonth(state,currentKey())[owner][property].find(row=>row.id===id);
+  if(!item) return;
+
+  if(realized){
+    const entered=prompt("Ingresa el monto real. Puedes dejar el monto previsto si fue igual:",String(item.plannedAmount));
+    if(entered===null){
+      checkElement.checked=false;
+      return;
+    }
+    const actual=Number(String(entered).replace(",","."));
+    if(!Number.isFinite(actual)||actual<0){
+      alert("Ingresa un monto real válido.");
+      checkElement.checked=false;
+      return;
+    }
+    item.realized=true;
+    item.actualAmount=actual;
+    item.date=today();
+  }else{
+    if(!confirm("¿Volver a dejar este registro como previsto y pendiente?")){
+      checkElement.checked=true;
+      return;
+    }
+    item.realized=false;
+    item.actualAmount=0;
+  }
+  renderAll();
+  await persist();
+}
+
+function bindRealizeChecks(container) {
+  container.querySelectorAll("[data-realize-id]").forEach(check=>{
+    check.addEventListener("change",()=>updateRealized(
+      check.dataset.kind,
+      check.dataset.realizeId,
+      check.dataset.owner,
+      check.checked,
+      check
+    ));
+  });
 }
 
 function bindEditRows(container) {
@@ -145,7 +210,10 @@ function openRecordModal(kind,id=null,owner=null) {
   const categories = state.settings.categories[categoryType];
   $("recordCategory").innerHTML=categories.map(category=>`<option>${escapeHtml(category)}</option>`).join("");
   $("categoryField").classList.remove("hidden");
-  $("paidField").classList.toggle("hidden",kind!=="fixed");
+  $("paidField").classList.remove("hidden");
+  $("actualAmountField").classList.add("hidden");
+  $("recordActualAmount").required=false;
+
   $("modalTitle").textContent = id ? "Editar registro" : kind==="income" ? "Agregar ingreso" : kind==="fixed" ? "Agregar gasto fijo" : "Agregar gasto variable";
   $("deleteRecordBtn").classList.toggle("hidden",!id);
 
@@ -153,12 +221,25 @@ function openRecordModal(kind,id=null,owner=null) {
     const collection = ensureMonth(state,currentKey())[owner][kind==="income"?"incomes":kind];
     const item = collection.find(row=>row.id===id);
     if(item){
-      $("recordConcept").value=item.concept;$("recordAmount").value=item.amount;$("recordDate").value=item.date;
+      $("recordConcept").value=item.concept;
+      $("recordPlannedAmount").value=item.plannedAmount;
+      $("recordActualAmount").value=item.actualAmount || "";
+      $("recordDate").value=item.date;
       $("recordCategory").value=item.category || (kind==="income" ? state.settings.categories.income[0] : state.settings.categories.expense[0]);
-      if(kind==="fixed") $("recordPaid").checked=item.paid;
+      $("recordRealized").checked=item.realized;
+      toggleActualAmountField();
     }
   }
   $("formModal").classList.add("open");
+}
+
+function toggleActualAmountField() {
+  const realized=$("recordRealized").checked;
+  $("actualAmountField").classList.toggle("hidden",!realized);
+  $("recordActualAmount").required=realized;
+  if(realized && !$("recordActualAmount").value){
+    $("recordActualAmount").value=$("recordPlannedAmount").value;
+  }
 }
 
 function closeModal(){ $("formModal").classList.remove("open"); }
@@ -169,14 +250,16 @@ async function saveRecord(event) {
   const month=ensureMonth(state,currentKey());
   const property=kind==="income"?"incomes":kind;
   ["elber","mayra"].forEach(person=>month[person][property]=month[person][property].filter(item=>item.id!==id));
+  const realized=$("recordRealized").checked;
   const item={
     id,owner,
     concept:$("recordConcept").value.trim(),
     category:$("recordCategory").value,
-    amount:Number($("recordAmount").value),
+    plannedAmount:Number($("recordPlannedAmount").value),
+    actualAmount:realized ? Number($("recordActualAmount").value) : 0,
+    realized,
     date:$("recordDate").value
   };
-  if(kind==="fixed") item.paid=$("recordPaid").checked;
   month[owner][property].push(item);
   closeModal();renderAll();await persist();
 }
@@ -203,7 +286,7 @@ async function copyPreviousIncomes() {
   ["elber","mayra"].forEach(person=>{
     const existing = new Set(target[person].incomes.map(duplicateKey));
     state.months[source][person].incomes.forEach(item=>{
-      const candidate={...item,id:uid(),owner:person,date:today()};
+      const candidate={...item,id:uid(),owner:person,date:today(),realized:false,actualAmount:0};
       const key=duplicateKey(candidate);
       if(existing.has(key)){ skipped++; return; }
       target[person].incomes.push(candidate);
@@ -318,6 +401,13 @@ function bindUi() {
   $("formModal").addEventListener("click",event=>event.target===$("formModal")&&closeModal());
   $("recordForm").addEventListener("submit",saveRecord);
   $("deleteRecordBtn").addEventListener("click",deleteRecord);
+  $("recordRealized").addEventListener("change",toggleActualAmountField);
+  $("recordPlannedAmount").addEventListener("input",()=>{
+    if($("recordRealized").checked && !$("recordActualAmount").dataset.edited){
+      $("recordActualAmount").value=$("recordPlannedAmount").value;
+    }
+  });
+  $("recordActualAmount").addEventListener("input",()=>{$("recordActualAmount").dataset.edited="true";});
   $("copyIncomeBtn").addEventListener("click",copyPreviousIncomes);
   $("copyFixedBtn").addEventListener("click",copyPreviousFixed);
   $("addIncomeCategoryBtn").addEventListener("click",()=>addCategory("income","newIncomeCategory"));

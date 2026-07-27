@@ -13,6 +13,34 @@ export function createEmptyState() {
   };
 }
 
+function migrateRecord(item, kind) {
+  if (item.plannedAmount !== undefined) {
+    item.plannedAmount = Number(item.plannedAmount || 0);
+    item.actualAmount = Number(item.actualAmount || 0);
+    item.realized = Boolean(item.realized);
+    return item;
+  }
+
+  const legacyAmount = Number(item.amount || 0);
+  item.plannedAmount = legacyAmount;
+
+  if (kind === "income") {
+    item.realized = true;
+    item.actualAmount = legacyAmount;
+  } else if (kind === "fixed") {
+    item.realized = Boolean(item.paid);
+    item.actualAmount = item.realized ? legacyAmount : 0;
+  } else {
+    // En versiones anteriores los variables se consideraban realizados al crearse.
+    item.realized = true;
+    item.actualAmount = legacyAmount;
+  }
+
+  delete item.amount;
+  delete item.paid;
+  return item;
+}
+
 export function normalizeState(state) {
   const normalized = state || createEmptyState();
   normalized.months ||= {};
@@ -34,7 +62,13 @@ export function normalizeState(state) {
       month[person].incomes ||= [];
       month[person].fixed ||= [];
       month[person].variable ||= [];
-      month[person].incomes.forEach(item => item.category ||= "Sueldo");
+
+      month[person].incomes = month[person].incomes.map(item => {
+        item.category ||= "Sueldo";
+        return migrateRecord(item,"income");
+      });
+      month[person].fixed = month[person].fixed.map(item => migrateRecord(item,"fixed"));
+      month[person].variable = month[person].variable.map(item => migrateRecord(item,"variable"));
     });
   });
   return normalized;
@@ -62,27 +96,47 @@ export function getProfileData(state, key, profile) {
   return month[profile];
 }
 
+const sum = (rows,field) => rows.reduce((total,item)=>total+Number(item[field]||0),0);
+const sumRealized = rows => rows.filter(item=>item.realized).reduce((total,item)=>total+Number(item.actualAmount||0),0);
+
 export function calculateTotals(state,key,profile) {
   const data = getProfileData(state,key,profile);
-  const income = data.incomes.reduce((sum,item)=>sum+Number(item.amount||0),0);
-  const fixedPlanned = data.fixed.reduce((sum,item)=>sum+Number(item.amount||0),0);
-  const fixedPaid = data.fixed.filter(item=>item.paid).reduce((sum,item)=>sum+Number(item.amount||0),0);
-  const variable = data.variable.reduce((sum,item)=>sum+Number(item.amount||0),0);
-  const paid = fixedPaid + variable;
-  const pending = Math.max(0,fixedPlanned-fixedPaid);
+
+  const incomePlanned = sum(data.incomes,"plannedAmount");
+  const incomeActual = sumRealized(data.incomes);
+
+  const fixedPlanned = sum(data.fixed,"plannedAmount");
+  const fixedActual = sumRealized(data.fixed);
+
+  const variablePlanned = sum(data.variable,"plannedAmount");
+  const variableActual = sumRealized(data.variable);
+
+  const expensePlanned = fixedPlanned + variablePlanned;
+  const expenseActual = fixedActual + variableActual;
+  const pendingExpenses = data.fixed.concat(data.variable)
+    .filter(item=>!item.realized)
+    .reduce((total,item)=>total+Number(item.plannedAmount||0),0);
+
+  const expected = incomePlanned - expensePlanned;
+  const available = incomeActual - expenseActual;
+
   return {
-    income,fixedPlanned,fixedPaid,variable,paid,pending,
-    available:income-paid,
-    expected:income-fixedPlanned-variable
+    incomePlanned,incomeActual,
+    fixedPlanned,fixedActual,
+    variablePlanned,variableActual,
+    expensePlanned,expenseActual,
+    pendingExpenses,
+    expected,available,
+    variance:available-expected
   };
 }
 
 export function getHistory(state,key,profile) {
   const data = getProfileData(state,key,profile);
   return [
-    ...data.incomes.map(item=>({...item,type:"income",category:item.category || "Sueldo"})),
-    ...data.fixed.filter(item=>item.paid).map(item=>({...item,type:"expense",kind:"fixed"})),
-    ...data.variable.map(item=>({...item,type:"expense",kind:"variable"}))
+    ...data.incomes.filter(item=>item.realized).map(item=>({...item,type:"income",kind:"income"})),
+    ...data.fixed.filter(item=>item.realized).map(item=>({...item,type:"expense",kind:"fixed"})),
+    ...data.variable.filter(item=>item.realized).map(item=>({...item,type:"expense",kind:"variable"}))
   ].sort((a,b)=>(b.date||"").localeCompare(a.date||""));
 }
 
