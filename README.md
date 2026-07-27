@@ -1,4 +1,4 @@
-# Finanzas Elber y Mayra — V25
+# Finanzas Elber y Mayra — V26
 
 Aplicación web familiar para registrar, planificar y analizar ingresos, gastos, préstamos, pensiones escolares y saldos mensuales.
 
@@ -371,7 +371,7 @@ Antes de usar la V18 como versión definitiva, conviene validar:
 
 ## Versión
 
-Versión actual: **V25**
+Versión actual: **V26**
 
 Nombre sugerido de commit:
 
@@ -598,3 +598,32 @@ Cada alumno tiene ahora un botón visible de eliminación:
 - En la tarjeta inferior del alumno.
 
 Al eliminar una pensión se eliminan también sus cuotas relacionadas, previa confirmación. Los meses cerrados continúan protegidos.
+
+
+## Versión 26 — corrección del Dashboard de préstamos
+
+### Gastos por categoría
+
+El gráfico vuelve a utilizar barras horizontales, con dos líneas por categoría:
+
+- Previsto.
+- Real.
+
+### Préstamos por mes o periodo
+
+Se reforzó la identificación de cuotas de préstamos.
+
+El Dashboard reconoce una cuota cuando:
+
+- Tiene `loanId`.
+- Tiene origen `loan-installment`.
+- Fue creada como préstamo ya activo.
+- Pertenece a la categoría `Préstamo`.
+- El concepto contiene textos como `Cuota 9 de 48` o `Pago 2`.
+
+Esto corrige registros antiguos que habían perdido sus campos internos antes de la protección incorporada en versiones posteriores.
+
+Los checks no necesitan estar marcados para que una cuota aparezca como prevista:
+
+- Sin check: suma en previsto y pendiente.
+- Con check: suma en pagado.
