@@ -110,6 +110,65 @@ export function renderAnalytics(state,keys,profile,periodKeysByMonth,periodNote)
     </div>`
   ).join("");
 
+
+  const monthCount=Math.max(1,periodKeysByMonth.length);
+  const avgIncome=monthly.reduce((sum,row)=>sum+row.income,0)/monthCount;
+  const avgExpense=monthly.reduce((sum,row)=>sum+row.expense,0)/monthCount;
+  const avgSavings=monthly.reduce((sum,row)=>sum+row.balance,0)/monthCount;
+  const selectedYear=Number(periodKeysByMonth[0]?.key?.slice(0,4) || new Date().getFullYear());
+  const activeMonths=selectedYear===2026 ? 5 : 12;
+  const projectedExpense=avgExpense*activeMonths;
+
+  $("analyticsAvgIncome").textContent=money(avgIncome);
+  $("analyticsAvgExpense").textContent=money(avgExpense);
+  $("analyticsAvgSavings").textContent=money(avgSavings);
+  $("analyticsProjection").textContent=money(projectedExpense);
+  $("analyticsProjectionHelp").textContent=selectedYear===2026
+    ? "Promedio mensual × 5 meses activos de 2026"
+    : "Promedio mensual × 12 meses";
+
+  const data=getProfileData(state,keys,profile);
+  const categoryMap=new Map();
+  [...data.fixed,...data.variable].filter(item=>item.realized).forEach(item=>{
+    const category=item.category||"Sin categoría";
+    categoryMap.set(category,(categoryMap.get(category)||0)+Number(item.actualAmount||0));
+  });
+  const categories=[...categoryMap.entries()].sort((x,y)=>y[1]-x[1]).slice(0,5);
+  const categoryMax=Math.max(1,...categories.map(([,value])=>value));
+  $("analyticsTopCategories").innerHTML=categories.length
+    ? categories.map(([category,value],index)=>`
+      <div class="top-category-row">
+        <b>${index+1}</b>
+        <div><span>${category}</span><i style="width:${value/categoryMax*100}%"></i></div>
+        <strong>${money(value)}</strong>
+      </div>`).join("")
+    : '<div class="empty">No hay gastos reales en el periodo.</div>';
+
+  const ordered=[...periodKeysByMonth].sort((x,y)=>x.key.localeCompare(y.key));
+  const latest=ordered.at(-1);
+  if(latest){
+    const [year,month]=latest.key.split("-").map(Number);
+    const date=new Date(year,month-2,1);
+    const previousKey=`${date.getFullYear()}-${String(date.getMonth()+1).padStart(2,"0")}`;
+    const latestTotals=calculateTotals(state,latest.key,profile);
+    const previousTotals=calculateTotals(state,previousKey,profile);
+    const variation=previousTotals.expenseActual>0
+      ? ((latestTotals.expenseActual-previousTotals.expenseActual)/previousTotals.expenseActual)*100
+      : 0;
+    const direction=variation>0?"increase":variation<0?"decrease":"stable";
+    $("analyticsMonthVariation").innerHTML=`
+      <div class="variation-value ${direction}">
+        <strong>${variation>0?"+":""}${pct(variation)}</strong>
+        <span>${latest.label} frente al mes anterior</span>
+      </div>
+      <div class="variation-detail">
+        <div><span>Mes analizado</span><strong>${money(latestTotals.expenseActual)}</strong></div>
+        <div><span>Mes anterior</span><strong>${money(previousTotals.expenseActual)}</strong></div>
+      </div>`;
+  }else{
+    $("analyticsMonthVariation").innerHTML='<div class="empty">Selecciona al menos un mes.</div>';
+  }
+
   $("analyticsComparisonPanel").classList.toggle("hidden",profile!=="general");
   if(profile==="general"){
     $("analyticsComparisonTable").innerHTML=["elber","mayra","general"].map(person=>{

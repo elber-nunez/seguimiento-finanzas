@@ -5,6 +5,7 @@ export function createEmptyState() {
     months:{},
     loans:[],
     schoolPensions:[],
+    monthClosures:{},
     ui:{ selectedProfile:"general" },
     settings:{
       categories:{
@@ -48,6 +49,7 @@ export function normalizeState(state) {
   normalized.months ||= {};
   normalized.loans ||= [];
   normalized.schoolPensions ||= [];
+  normalized.monthClosures ||= {};
   normalized.ui ||= { selectedProfile:"general" };
   normalized.settings ||= {};
   normalized.settings.categories ||= {};
@@ -122,6 +124,10 @@ function monthLabel(key) {
 }
 
 function closingBalance(state,key,profile,visited=new Set()) {
+  const closure=state.monthClosures?.[key];
+  if(closure?.closed && closure.snapshot?.[profile]){
+    return Number(closure.snapshot[profile].available||0);
+  }
   if(visited.has(key)) return 0;
   visited.add(key);
 

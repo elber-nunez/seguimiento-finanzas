@@ -17,6 +17,8 @@ let selectedProfile = "general";
 let selectedMonths = new Set();
 let saving = false;
 let saveQueued = false;
+let undoSnapshot = null;
+let undoTimer = null;
 
 function allowedMonthIndexes(year=Number($("yearPicker").value)) {
   // En 2026 la analítica y los resúmenes comienzan en agosto.
@@ -158,12 +160,117 @@ function initPeriodPickers() {
   $("selectAllMonths").addEventListener("change",event=>toggleAllMonths(event.target.checked));
 }
 
+
+function setSyncStatus(status,text) {
+  const node=$("syncStatus");
+  node.className=`sync-pill ${status}`;
+  node.innerHTML=`<i></i><b>${text}</b>`;
+}
+
+function cloneState(value=state) {
+  return JSON.parse(JSON.stringify(value));
+}
+
+function prepareUndo(message) {
+  undoSnapshot=cloneState();
+  clearTimeout(undoTimer);
+  $("undoMessage").textContent=message;
+  $("undoToast").classList.remove("hidden");
+  undoTimer=setTimeout(dismissUndo,8000);
+}
+
+function dismissUndo() {
+  clearTimeout(undoTimer);
+  undoSnapshot=null;
+  $("undoToast").classList.add("hidden");
+}
+
+async function undoLastChange() {
+  if(!undoSnapshot) return;
+  state=normalizeState(undoSnapshot);
+  dismissUndo();
+  renderAll();
+  await persist();
+}
+
+function isMonthClosed(key=currentKey()) {
+  return Boolean(state.monthClosures?.[key]?.closed);
+}
+
+function closedMonthMessage(key=currentKey()) {
+  const [year,month]=key.split("-").map(Number);
+  return `${MONTHS[month-1]} ${year} está cerrado. Reabre el mes para modificarlo.`;
+}
+
+function assertMonthOpen(key=currentKey()) {
+  if(!isMonthClosed(key)) return true;
+  alert(closedMonthMessage(key));
+  return false;
+}
+
+function findRecordLocation(kind,id,owner=null) {
+  const property=kind==="income"?"incomes":kind;
+  for(const [key,month] of Object.entries(state.months||{})){
+    for(const person of owner ? [owner] : ["elber","mayra"]){
+      const collection=month?.[person]?.[property]||[];
+      const item=collection.find(row=>row.id===id);
+      if(item) return {key,owner:person,property,item,collection};
+    }
+  }
+  return null;
+}
+
+function updateMonthCloseButton() {
+  const button=$("monthCloseBtn");
+  const months=sortedSelectedMonths();
+  if(months.length!==1){
+    button.disabled=true;
+    button.textContent="Selecciona un mes";
+    button.classList.remove("reopen");
+    return;
+  }
+  button.disabled=false;
+  const closed=isMonthClosed(currentKey());
+  button.textContent=closed?"Reabrir mes":"Cerrar mes";
+  button.classList.toggle("reopen",closed);
+}
+
+async function toggleMonthClosure() {
+  if(sortedSelectedMonths().length!==1) return alert("Selecciona un solo mes para cerrarlo o reabrirlo.");
+  const key=currentKey();
+  state.monthClosures ||= {};
+
+  if(isMonthClosed(key)){
+    if(!confirm(`¿Reabrir ${periodNote()} para permitir modificaciones?`)) return;
+    prepareUndo("Mes reabierto");
+    delete state.monthClosures[key];
+    renderAll();
+    await persist();
+    return;
+  }
+
+  if(!confirm(`¿Cerrar ${periodNote()}? El mes quedará bloqueado y el saldo final se usará para el siguiente mes.`)) return;
+  prepareUndo("Mes cerrado");
+  state.monthClosures[key]={
+    closed:true,
+    closedAt:new Date().toISOString(),
+    closedBy:currentUser?.email||"",
+    snapshot:{
+      elber:calculateTotals(state,key,"elber"),
+      mayra:calculateTotals(state,key,"mayra"),
+      general:calculateTotals(state,key,"general")
+    }
+  };
+  renderAll();
+  await persist();
+}
+
 async function persist() {
   if (!currentUser) return;
 
   if (saving) {
     saveQueued = true;
-    $("syncStatus").textContent = "Cambios pendientes…";
+    setSyncStatus("pending","Cambios pendientes…");
     return;
   }
 
@@ -171,7 +278,7 @@ async function persist() {
   try {
     do {
       saveQueued = false;
-      $("syncStatus").textContent = "Guardando…";
+      setSyncStatus("saving","Guardando…");
 
       // Guardamos una copia estable. Si el usuario marca otro check
       // mientras se guarda, saveQueued obliga a una nueva escritura.
@@ -179,10 +286,10 @@ async function persist() {
       await saveFinanceData(stateSnapshot,currentUser.email);
     } while (saveQueued);
 
-    $("syncStatus").textContent = "Sincronizado";
+    setSyncStatus("synced","Sincronizado");
   } catch(error) {
     console.error(error);
-    $("syncStatus").textContent = "Error al guardar";
+    setSyncStatus("error","Error al guardar");
     alert("No se pudo guardar en Firestore. Revisa las reglas de seguridad.");
   } finally {
     saving = false;
@@ -197,6 +304,7 @@ function renderAll() {
   ensureMonth(state,currentKey());
   selectedProfile = $("profileSelect").value;
   state.ui.selectedProfile = selectedProfile;
+  updateMonthCloseButton();
   renderHome();
   renderIncome();
   renderFixed();
@@ -245,9 +353,9 @@ function renderHome() {
 }
 
 function itemRow(item,type,editable=true,withCheck=false) {
-  const editAttrs = editable ? `data-edit-id="${item.id}" data-kind="${item.kind || type}" data-owner="${item.owner}"` : "";
+  const editAttrs = editable && !item.locked ? `data-edit-id="${item.id}" data-kind="${item.kind || type}" data-owner="${item.owner}"` : "";
   const check = withCheck
-    ? `<input type="checkbox" data-realize-id="${item.id}" data-kind="${item.kind || type}" data-owner="${item.owner}" ${item.realized?"checked":""}>`
+    ? `<input type="checkbox" data-realize-id="${item.id}" data-kind="${item.kind || type}" data-owner="${item.owner}" ${item.realized?"checked":""} ${item.locked?"disabled":""}>`
     : "";
   return `<article class="${withCheck?"check-row":"item-row"} ${item.realized?"paid":""}">
     ${check}
@@ -264,6 +372,8 @@ function itemRow(item,type,editable=true,withCheck=false) {
 
 function renderIncome() {
   const data = getProfileData(state,currentKey(),selectedProfile);
+  const locked=isMonthClosed(currentKey());
+  data.incomes.forEach(item=>item.locked=locked);
   const totals = calculateTotals(state,currentKey(),selectedProfile);
   $("incomePlannedTotal").textContent = money(totals.incomePlanned);
   $("incomeActualTotal").textContent = money(totals.incomeActual);
@@ -279,6 +389,8 @@ function renderIncome() {
 
 function renderFixed() {
   const data = getProfileData(state,currentKey(),selectedProfile);
+  const locked=isMonthClosed(currentKey());
+  data.fixed.forEach(item=>item.locked=locked);
   const currentFilter=$("fixedCategoryFilter").value || "all";
   const categories=[...new Set(data.fixed.map(item=>item.category).filter(Boolean))].sort((x,y)=>x.localeCompare(y,"es"));
   $("fixedCategoryFilter").innerHTML='<option value="all">Todas las categorías</option>'+categories.map(category=>`<option>${escapeHtml(category)}</option>`).join("");
@@ -304,6 +416,8 @@ function renderFixed() {
 
 function renderVariable() {
   const data = getProfileData(state,currentKey(),selectedProfile);
+  const locked=isMonthClosed(currentKey());
+  data.variable.forEach(item=>item.locked=locked);
   const totals = calculateTotals(state,currentKey(),selectedProfile);
   $("variablePlannedTotal").textContent = money(totals.variablePlanned);
   $("variableActualTotal").textContent = money(totals.variableActual);
@@ -329,18 +443,25 @@ function renderSummary() {
 }
 
 async function updateRealized(kind,id,owner,realized,checkElement) {
-  const property=kind==="income"?"incomes":kind;
-  const item=ensureMonth(state,currentKey())[owner][property].find(row=>row.id===id);
-  if(!item) return;
+  const location=findRecordLocation(kind,id,owner);
+  if(!location) return;
+  if(!assertMonthOpen(location.key)){
+    checkElement.checked=!realized;
+    return;
+  }
+  prepareUndo(realized ? "Pago registrado" : "Pago vuelto a pendiente");
+  const item=location.item;
 
   if(realized){
     const entered=prompt("Ingresa el monto real. Puedes dejar el monto previsto si fue igual:",String(item.plannedAmount));
     if(entered===null){
+      dismissUndo();
       checkElement.checked=false;
       return;
     }
     const actual=Number(String(entered).replace(",","."));
     if(!Number.isFinite(actual)||actual<0){
+      dismissUndo();
       alert("Ingresa un monto real válido.");
       checkElement.checked=false;
       return;
@@ -354,6 +475,7 @@ async function updateRealized(kind,id,owner,realized,checkElement) {
     }
   }else{
     if(!confirm("¿Volver a dejar este registro como previsto y pendiente?")){
+      dismissUndo();
       checkElement.checked=true;
       return;
     }
@@ -387,6 +509,9 @@ function bindEditRows(container) {
 }
 
 function openRecordModal(kind,id=null,owner=null) {
+  const location=id ? findRecordLocation(kind,id,owner) : null;
+  const targetKey=location?.key || currentKey();
+  if(!assertMonthOpen(targetKey)) return;
   $("recordForm").reset();
   $("recordId").value=id||"";$("recordKind").value=kind;$("recordOwner").value=owner||selectedOwner();$("recordDate").value=today();
   const categoryType = kind==="income" ? "income" : "expense";
@@ -408,8 +533,7 @@ function openRecordModal(kind,id=null,owner=null) {
   $("deleteRecordBtn").classList.toggle("hidden",!id);
 
   if(id){
-    const collection = ensureMonth(state,currentKey())[owner][kind==="income"?"incomes":kind];
-    const item = collection.find(row=>row.id===id);
+    const item = location?.item;
     if(item){
       $("recordConcept").value=item.concept;
       $("recordPlannedAmount").value=item.plannedAmount;
@@ -432,6 +556,8 @@ function closeModal(){ $("formModal").classList.remove("open"); }
 
 async function saveRecord(event) {
   event.preventDefault();
+  if(!assertMonthOpen()) return;
+  prepareUndo($("recordId").value ? "Registro actualizado" : "Registro agregado");
   const id=$("recordId").value||uid(), kind=$("recordKind").value, owner=$("recordOwner").value;
   const month=ensureMonth(state,currentKey());
   const property=kind==="income"?"incomes":kind;
@@ -471,11 +597,14 @@ async function saveRecord(event) {
 
 async function deleteRecord() {
   const id=$("recordId").value, kind=$("recordKind").value;
-  if(!id||!confirm("¿Eliminar este registro?")) return;
-  const property=kind==="income"?"incomes":kind;
-  const month=ensureMonth(state,currentKey());
-  ["elber","mayra"].forEach(person=>month[person][property]=month[person][property].filter(item=>item.id!==id));
-  closeModal();renderAll();await persist();
+  const location=findRecordLocation(kind,id);
+  if(!id || !location || !confirm("¿Eliminar este registro?")) return;
+  if(!assertMonthOpen(location.key)) return;
+  prepareUndo("Registro eliminado");
+  location.collection.splice(location.collection.findIndex(item=>item.id===id),1);
+  closeModal();
+  renderAll();
+  await persist();
 }
 
 function duplicateKey(item) {
@@ -483,6 +612,8 @@ function duplicateKey(item) {
 }
 
 async function copyPreviousIncomes() {
+  if(!assertMonthOpen()) return;
+  prepareUndo("Ingresos copiados");
   const destination=currentKey(), source=previousMonthKey(destination);
   if(!state.months[source]) return alert("El mes anterior no tiene información registrada.");
   const target=ensureMonth(state,destination);
@@ -506,6 +637,8 @@ async function copyPreviousIncomes() {
 }
 
 async function copyPreviousFixed() {
+  if(!assertMonthOpen()) return;
+  prepareUndo("Gastos fijos copiados");
   const destination=currentKey(), source=previousMonthKey(destination);
   if(!state.months[source]) return alert("El mes anterior no tiene información registrada.");
   const target=ensureMonth(state,destination);
@@ -584,7 +717,9 @@ function renderCategoryEditors() {
 }
 
 async function resetMonth() {
+  if(!assertMonthOpen()) return;
   if(!confirm("¿Eliminar todos los datos del mes seleccionado para Elber y Mayra?")) return;
+  prepareUndo("Mes restablecido");
   state.months[currentKey()]={elber:{incomes:[],fixed:[],variable:[]},mayra:{incomes:[],fixed:[],variable:[]}};
   renderAll();await persist();
 }
@@ -632,8 +767,9 @@ function renderSchoolPensions() {
       ${pensions.map(pension=>{
         const record=pensionRecords(state,pension.id).find(({item})=>item.schoolRowKey===row.key);
         if(!record) return "<td>—</td><td>—</td>";
-        return `<td class="school-amount-cell" data-school-edit="${record.item.id}" data-owner="${record.owner}">${money(record.item.plannedAmount)}</td>
-          <td><input type="checkbox" data-school-check="${record.item.id}" data-owner="${record.owner}" ${record.item.realized?"checked":""}></td>`;
+        const locked=isMonthClosed(record.periodKey);
+        return `<td class="school-amount-cell ${locked?"locked":""}" ${locked?"":`data-school-edit="${record.item.id}" data-owner="${record.owner}"`}>${money(record.item.plannedAmount)}</td>
+          <td><input type="checkbox" data-school-check="${record.item.id}" data-owner="${record.owner}" ${record.item.realized?"checked":""} ${locked?"disabled":""}></td>`;
       }).join("")}
     </tr>`).join("");
 
@@ -675,6 +811,10 @@ function renderSchoolPensions() {
 }
 
 function openSchoolModal(id=null) {
+  if(id){
+    const closed=pensionRecords(state,id).find(record=>isMonthClosed(record.periodKey));
+    if(closed) return alert(closedMonthMessage(closed.periodKey));
+  }
   $("schoolForm").reset();
   $("schoolPensionId").value=id||"";
   $("schoolStudentName").value="";
@@ -712,13 +852,18 @@ async function saveSchoolPension(event) {
     monthlyAmount:Number($("schoolMonthlyAmount").value)
   };
   if(!id){
+    const targetYear=Number(values.year);
+    const closedKey=Object.keys(state.monthClosures||{}).find(key=>key.startsWith(`${targetYear}-`) && isMonthClosed(key));
+    if(closedKey) return alert(closedMonthMessage(closedKey));
     const duplicate=(state.schoolPensions||[]).some(item=>
       item.studentName.trim().toLowerCase()===values.studentName.trim().toLowerCase() &&
       Number(item.year)===values.year
     );
     if(duplicate) return alert("Ya existe una pensión para ese alumno y periodo.");
+    prepareUndo("Pensión escolar agregada");
     createSchoolPension(state,values);
   }else{
+    prepareUndo("Pensión escolar actualizada");
     updateSchoolPension(state,id,values);
   }
   closeSchoolModal();
@@ -728,8 +873,11 @@ async function saveSchoolPension(event) {
 
 async function removeSchoolPension() {
   const id=$("schoolPensionId").value;
+  const closed=pensionRecords(state,id).find(record=>isMonthClosed(record.periodKey));
+  if(closed) return alert(closedMonthMessage(closed.periodKey));
   if(!id || !confirm("¿Eliminar esta pensión escolar y todos sus pagos relacionados?")) return;
   if(deleteSchoolPension(state,id)){
+    prepareUndo("Pensión escolar eliminada");
     closeSchoolModal();
     renderAll();
     await persist();
@@ -830,6 +978,12 @@ function togglePayoffFields() {
 }
 
 function openLoanModal(id=null) {
+  if(!id && !assertMonthOpen()) return;
+  if(id){
+    const records=loanRecords(state,id);
+    const closed=records.incomes.concat(records.installments).find(record=>isMonthClosed(record.monthKey));
+    if(closed) return alert(closedMonthMessage(closed.monthKey));
+  }
   $("loanForm").reset();
   $("loanId").value=id||"";
   $("loanOwner").value=selectedOwner();
@@ -896,6 +1050,7 @@ async function saveLoan(event) {
     values.plannedPrincipal = Number((values.principal / Math.max(1, values.installments)).toFixed(2));
   }
 
+  prepareUndo(id ? "Préstamo actualizado" : "Préstamo agregado");
   if(!id){
     createLoan(state,values);
   }else{
@@ -914,8 +1069,12 @@ async function saveLoan(event) {
 
 async function removeLoan() {
   const id=$("loanId").value;
+  const records=loanRecords(state,id);
+  const closed=records.incomes.concat(records.installments).find(record=>isMonthClosed(record.monthKey));
+  if(closed) return alert(closedMonthMessage(closed.monthKey));
   if(!id || !confirm("¿Eliminar este préstamo y sus registros relacionados?")) return;
   if(deleteLoan(state,id)){
+    prepareUndo("Préstamo eliminado");
     closeLoanModal();
     renderAll();
     await persist();
@@ -927,6 +1086,9 @@ function bindUi() {
   initHistoryFilters(renderAll);
   $("profileSelect").addEventListener("change",renderAll);
   $("fixedCategoryFilter").addEventListener("change",renderFixed);
+  $("monthCloseBtn").addEventListener("click",toggleMonthClosure);
+  $("undoBtn").addEventListener("click",undoLastChange);
+  $("dismissUndoBtn").addEventListener("click",dismissUndo);
   $("googleLoginBtn").addEventListener("click",async()=>{
     $("loginMessage").textContent="";
     try{await loginWithGoogle();}catch(error){$("loginMessage").textContent=error.message;}
@@ -1005,7 +1167,7 @@ observeSession(({user,profile,error})=>{
     // Mientras existen cambios locales en proceso, no reemplazamos el
     // estado con una respuesta anterior de Firestore.
     if (saving || saveQueued) {
-      $("syncStatus").textContent = saveQueued ? "Cambios pendientes…" : "Guardando…";
+      setSyncStatus(saveQueued ? "pending" : "saving",saveQueued ? "Cambios pendientes…" : "Guardando…");
       return;
     }
 
@@ -1015,7 +1177,7 @@ observeSession(({user,profile,error})=>{
       state=createEmptyState();
       await saveFinanceData(state,user.email);
     }
-    $("syncStatus").textContent="Sincronizado";
+    setSyncStatus("synced","Sincronizado");
     renderAll();
   },error=>{
     console.error(error);$("syncStatus").textContent="Sin acceso a Firestore";

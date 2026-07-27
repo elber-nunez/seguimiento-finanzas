@@ -183,3 +183,27 @@ h1,h2,p{margin-top:0}
 .status-tag.carryover{background:#e0f2fe;color:#075985}
 
 /* Los periodos analíticos ahora se controlan desde el filtro superior. */
+
+.undo-toast{position:fixed;right:22px;bottom:22px;z-index:120;display:flex;align-items:center;gap:12px;min-width:300px;padding:13px 15px;border-radius:14px;background:#172033;color:#fff;box-shadow:0 18px 50px rgba(15,23,42,.32)}
+.undo-toast button{border:0;background:transparent;color:#fdba74;font-weight:900;cursor:pointer}
+.undo-toast button:last-child{margin-left:auto;color:#cbd5e1;font-size:1.2rem}
+.advanced-kpi-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin-top:14px}
+.analytics-extra-layout{margin-bottom:14px}
+.top-category-list{display:flex;flex-direction:column;gap:11px}
+.top-category-row{display:grid;grid-template-columns:25px 1fr auto;align-items:center;gap:9px}
+.top-category-row>b{display:grid;place-items:center;width:25px;height:25px;border-radius:50%;background:#f1f5f9;font-size:.72rem}
+.top-category-row div span{display:block;font-size:.75rem;font-weight:800;margin-bottom:5px}
+.top-category-row div i{display:block;height:7px;border-radius:999px;background:var(--orange)}
+.top-category-row>strong{font-size:.78rem}
+.month-variation{display:flex;flex-direction:column;gap:14px}
+.variation-value{padding:16px;border-radius:14px;background:#f8fafc}
+.variation-value strong,.variation-value span{display:block}.variation-value strong{font-size:1.7rem}.variation-value span{margin-top:4px;color:var(--muted);font-size:.75rem}
+.variation-value.increase strong{color:var(--red)}.variation-value.decrease strong{color:var(--green)}.variation-value.stable strong{color:var(--muted)}
+.variation-detail{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+.variation-detail div{padding:11px;border:1px solid var(--line);border-radius:12px}.variation-detail span,.variation-detail strong{display:block}.variation-detail span{color:var(--muted);font-size:.7rem}.variation-detail strong{margin-top:5px}
+.school-amount-cell.locked{cursor:not-allowed;opacity:.65}
+@media(max-width:900px){.advanced-kpi-grid{grid-template-columns:repeat(2,1fr)}}
+@media(max-width:560px){
+  .advanced-kpi-grid{grid-template-columns:1fr 1fr}
+  .undo-toast{left:12px;right:12px;bottom:12px;min-width:0}
+}

@@ -34,3 +34,14 @@
 @media(max-width:560px){
   .month-filter-popover{right:auto;left:0;width:min(300px,88vw)}
 }
+
+.sync-pill{display:inline-flex!important;align-items:center;gap:6px;margin-top:4px!important;font-size:.68rem!important;font-weight:800}
+.sync-pill i{width:8px;height:8px;border-radius:50%;background:#94a3b8}
+.sync-pill b{font-weight:800}
+.sync-pill.synced{color:#15803d!important}.sync-pill.synced i{background:#22c55e;box-shadow:0 0 0 3px #dcfce7}
+.sync-pill.saving,.sync-pill.pending{color:#a16207!important}.sync-pill.saving i,.sync-pill.pending i{background:#f59e0b;box-shadow:0 0 0 3px #fef3c7}
+.sync-pill.error{color:#b91c1c!important}.sync-pill.error i{background:#ef4444;box-shadow:0 0 0 3px #fee2e2}
+.sync-pill.connecting{color:#64748b!important}
+.month-close-btn{padding:9px 12px;border:1px solid #b45309;border-radius:10px;background:#fff7ed;color:#9a3412;font-weight:850;white-space:nowrap}
+.month-close-btn.reopen{border-color:#15803d;background:#f0fdf4;color:#166534}
+.month-close-btn:disabled{opacity:.55;cursor:not-allowed}

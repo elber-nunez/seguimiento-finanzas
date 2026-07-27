@@ -1,242 +1,378 @@
-# Seguimiento de finanzas — V6
+# Finanzas Elber y Mayra — V18
 
-Aplicación web compartida para Elber y Mayra.
+Aplicación web familiar para registrar, planificar y analizar ingresos, gastos, préstamos, pensiones escolares y saldos mensuales.
 
-## Cambios principales
+La aplicación está desarrollada con HTML, CSS y JavaScript, se publica mediante GitHub Pages y utiliza Firebase Authentication y Cloud Firestore para sincronizar la información entre Elber y Mayra.
 
-- Inicio de sesión con Google mediante Firebase Authentication.
-- Datos sincronizados con Cloud Firestore.
-- Acceso a vistas General, Elber y Mayra.
-- Navegación reformada:
-  - Inicio
-  - Presupuesto mensual
-    - Ingresos
-    - Gastos fijos
-    - Gastos variables
-    - Resumen
-  - Dashboard
-  - Historial
-  - Configuración
-- Sin opción de exportación en PDF.
-- Código dividido por módulos.
+## Acceso
 
-## Antes de publicar
+Usuarios autorizados:
 
-### 1. Agrega el correo de Mayra
+- Elber: `elbernunez97@gmail.com`
+- Mayra: `mayra.barrera.g01@gmail.com`
 
-Edita:
+La autenticación se realiza con Google.
 
-- `js/config.js`
-- `FIRESTORE_RULES.txt`
+## Estructura principal
 
-Reemplaza:
+La aplicación incluye las siguientes secciones:
 
-`REEMPLAZAR_CORREO_DE_MAYRA@gmail.com`
+- Inicio
+- Presupuesto mensual
+  - Ingresos
+  - Gastos fijos
+  - Gastos variables
+  - Resumen
+- Préstamos
+- Pensiones escolares
+- Dashboard
+- Analítica
+- Historial
+- Configuración
 
-por el correo real de Google de Mayra, en minúsculas.
+## Selección de vista
 
-### 2. Publica las reglas de Firestore
+La información puede consultarse en tres vistas:
 
-En Firebase:
+- General
+- Elber
+- Mayra
 
-`Firestore Database → Reglas`
+La vista General consolida la información de ambos usuarios.
 
-Copia todo el contenido de `FIRESTORE_RULES.txt` y pulsa **Publicar**.
+## Filtro de meses
 
-### 3. Dominio autorizado
+El selector superior permite marcar uno o varios meses mediante casillas.
 
-En:
+Comportamiento:
 
-`Authentication → Configuración → Dominios autorizados`
+- Un mes marcado: muestra únicamente ese mes.
+- Varios meses marcados: consolida los meses seleccionados.
+- Todos: marca todos los meses habilitados.
 
-debe existir:
+Regla especial para 2026:
+
+- La analítica, los dashboards y los resúmenes consideran agosto a diciembre.
+- Enero a julio quedan fuera de los cálculos generales.
+- Las pensiones escolares históricas pueden mantenerse registradas sin alterar la analítica financiera del periodo activo.
+
+Desde 2027:
+
+- Todos considera enero a diciembre.
+
+## Ingresos
+
+Cada ingreso permite registrar:
+
+- Concepto
+- Categoría
+- Responsable
+- Monto previsto
+- Monto real
+- Fecha
+- Estado recibido o pendiente
+
+En ingresos, el monto previsto es opcional.
+
+Si el monto real queda vacío, se guarda como cero.
+
+## Gastos fijos
+
+Cada gasto fijo permite registrar:
+
+- Concepto
+- Categoría
+- Responsable
+- Monto previsto
+- Monto real
+- Fecha
+- Estado pagado o pendiente
+
+En gastos, el monto previsto es obligatorio.
+
+El filtro por categoría recalcula automáticamente:
+
+- Previsto
+- Real
+- Pendiente previsto
+
+Por ejemplo, al seleccionar Streaming, los indicadores muestran únicamente los gastos de esa categoría.
+
+## Gastos variables
+
+Permite registrar gastos no contemplados inicialmente.
+
+Cada registro incluye:
+
+- Concepto
+- Categoría
+- Responsable
+- Monto previsto
+- Monto real
+- Fecha
+- Estado pagado o pendiente
+
+## Saldo restante del mes anterior
+
+Cuando un mes termina con saldo real positivo, el siguiente mes recibe automáticamente un ingreso virtual.
+
+Ejemplo:
+
+- Ingresos reales de agosto: S/ 5.000
+- Gastos reales de agosto: S/ 3.500
+- Saldo final: S/ 1.500
+
+En septiembre aparecerá:
+
+- Concepto: `Saldo restante de agosto`
+- Categoría: `Saldo anterior`
+- Monto previsto: S/ 1.500
+- Monto real: S/ 1.500
+
+Reglas:
+
+- Solo se arrastran saldos positivos.
+- Los saldos negativos no se trasladan.
+- El saldo se recalcula automáticamente mientras el mes permanezca abierto.
+- En la vista anual se incorpora una sola vez para evitar duplicar ingresos.
+
+## Cierre mensual
+
+La V18 incorpora cierre y reapertura de meses.
+
+### Cerrar mes
+
+Al cerrar un mes:
+
+- Se bloquean nuevos registros.
+- Se bloquean ediciones.
+- Se bloquean eliminaciones.
+- No se pueden marcar ni desmarcar pagos.
+- Se guarda una fotografía de los totales de Elber, Mayra y General.
+- El saldo final cerrado se utiliza para el mes siguiente.
+
+### Reabrir mes
+
+Permite volver a modificar un mes cerrado.
+
+Para cerrar o reabrir debe seleccionarse un solo mes.
+
+## Préstamos
+
+La aplicación admite dos tipos de préstamo.
+
+### Cuotas fijas
+
+Campos principales:
+
+- Monto recibido
+- Total original a devolver
+- Número de cuotas
+- Primera cuota
+- Responsable
+
+Permite cancelar anticipadamente y registrar un nuevo total final.
+
+El sistema:
+
+- Descuenta pagos anteriores.
+- Ajusta la cuota final.
+- Elimina cuotas posteriores.
+
+### Interés mensual y abono flexible
+
+Campos principales:
+
+- Capital recibido
+- Interés mensual
+- Plazo referencial
+- Capital que se planea pagar por mes
+
+El capital previsto se calcula automáticamente según el monto y el plazo, pero sigue siendo editable.
+
+Reglas de pago:
+
+- Primero se cubre el interés.
+- El excedente reduce capital.
+- Si solo se paga el interés, el capital permanece.
+- Si se paga más de lo previsto, se recalculan los meses restantes.
+- Si queda capital al terminar el plazo previsto, el cronograma se amplía automáticamente.
+
+## Pensiones escolares
+
+La sección especial de pensiones permite registrar:
+
+- Nombre del alumno
+- Periodo escolar
+- Matrícula
+- Pensión mensual
+- Responsable inicial
+
+El responsable predeterminado es Mayra.
+
+La aplicación genera automáticamente:
+
+- Matrícula en marzo
+- Pensiones de marzo a diciembre
+- Pago de julio programado a quincena
+- Pago de diciembre programado a quincena
+
+La matriz muestra por alumno:
+
+- Monto previsto
+- Check de pago
+- Total anual
+- Cantidad de pagos realizados
+
+Cada cuota también aparece como gasto fijo y puede editarse individualmente.
+
+Las pensiones escolares no se copian mediante la función de copiar gastos fijos del mes anterior.
+
+## Dashboard
+
+El Dashboard utiliza los meses seleccionados en el filtro superior.
+
+Incluye:
+
+- Ingresos previstos y reales
+- Gastos previstos y reales
+- Avance de pagos
+- Saldo disponible
+- Comparación entre Elber y Mayra
+- Indicadores de préstamos
+
+## Analítica financiera
+
+La sección Analítica presenta indicadores estándar de salud financiera.
+
+Incluye:
+
+- Puntaje de salud financiera sobre 100
+- Tasa de ahorro real
+- Relación gastos / ingresos
+- Cumplimiento de ingresos
+- Desviación presupuestaria
+- Carga de gastos fijos
+- Carga de deuda
+- Evolución mensual
+- Diagnóstico automático
+- Comparación entre Elber, Mayra y General
+
+La V18 también incorpora:
+
+- Ingreso real promedio
+- Gasto real promedio
+- Ahorro real promedio
+- Proyección simple del gasto
+- Cinco categorías con mayor gasto
+- Variación frente al mes anterior
+
+La proyección es referencial y no representa una predicción bancaria ni contable.
+
+## Indicador de sincronización
+
+El estado de Firestore se muestra en la parte superior.
+
+Estados:
+
+- Verde: Sincronizado
+- Amarillo: Guardando
+- Amarillo: Cambios pendientes
+- Rojo: Error al guardar
+
+## Deshacer
+
+Después de las principales modificaciones aparece temporalmente el botón:
+
+`Deshacer`
+
+Se utiliza para revertir:
+
+- Creación de registros
+- Ediciones
+- Eliminaciones
+- Pagos marcados
+- Copias del mes anterior
+- Cierre o reapertura de meses
+- Cambios en préstamos
+- Cambios en pensiones escolares
+
+## Copiar información del mes anterior
+
+La aplicación permite copiar por separado:
+
+- Ingresos
+- Gastos fijos
+
+No se copian automáticamente:
+
+- Ingresos provenientes de préstamos
+- Cuotas de préstamos
+- Pensiones escolares
+- Saldo restante del mes anterior
+
+## Firebase
+
+Proyecto Firebase:
+
+- Project ID: `seguimiento-finanzas-f0db8`
+- Auth Domain: `seguimiento-finanzas-f0db8.firebaseapp.com`
+- Documento compartido: `families/elber-mayra`
+
+El dominio de GitHub Pages debe permanecer autorizado en Firebase Authentication:
 
 `elber-nunez.github.io`
 
-### 4. Sube el proyecto completo a GitHub
+## Publicación en GitHub Pages
 
-Debe mantenerse esta estructura:
+Repositorio:
 
-```text
-index.html
-css/
-js/
-FIRESTORE_RULES.txt
-README.md
-```
+`elber-nunez/seguimiento-finanzas`
 
-GitHub Pages debe publicar desde la rama `main` y la carpeta raíz.
+URL:
 
-## Base de datos
+`https://elber-nunez.github.io/seguimiento-finanzas/`
 
-Toda la información se guarda en un único documento compartido:
+Para actualizar la aplicación:
 
-`families/elber-mayra`
+1. Descomprimir el ZIP.
+2. Reemplazar los archivos existentes del repositorio.
+3. Mantener las carpetas `css` y `js`.
+4. Confirmar los cambios en GitHub.
+5. Esperar la actualización de GitHub Pages.
 
-Los dos usuarios autorizados pueden visualizar y actualizar los datos.
+## Archivos principales
 
+- `index.html`: estructura principal
+- `css/`: estilos visuales
+- `js/app.js`: lógica general
+- `js/budget.js`: cálculos financieros y saldo arrastrado
+- `js/loans.js`: lógica de préstamos
+- `js/school-pensions.js`: lógica de pensiones escolares
+- `js/dashboard.js`: dashboard
+- `js/analytics.js`: analítica financiera
+- `js/firestore.js`: sincronización
+- `js/auth.js`: autenticación
+- `FIRESTORE_RULES.txt`: reglas de seguridad
 
-## Versión 7
+## Recomendaciones de prueba
 
-- Copia separada de ingresos y gastos fijos desde el mes anterior.
-- Solo se agregan registros faltantes; los duplicados se omiten.
-- Los gastos fijos copiados comienzan desmarcados.
-- Categorías de ingresos y gastos editables desde Configuración.
-- Los registros anteriores conservan la categoría aunque se elimine de las opciones nuevas.
+Antes de usar la V18 como versión definitiva, conviene validar:
 
+- Sincronización simultánea entre ambos usuarios
+- Cierre y reapertura de meses
+- Arrastre de saldo después de cerrar un mes
+- Registro y deshacer de movimientos
+- Préstamos con pagos superiores o inferiores
+- Pensiones escolares al cambiar de año
+- Filtros de uno, varios y todos los meses
+- Indicadores por categoría
+- Analítica para Elber, Mayra y General
 
-## Versión 8 — Previsto y real
+## Versión
 
-- Todo ingreso, gasto fijo o gasto variable nuevo se crea como **previsto**.
-- Al marcarlo como recibido o pagado, se solicita el **monto real**.
-- El monto real puede ser igual o diferente al previsto.
-- Los dashboards comparan ingresos previstos/reales, gastos previstos/reales y saldos previsto/real.
-- Los datos anteriores se migran automáticamente sin borrarse.
-- Se agregó el correo autorizado de Mayra: `mayra.barrera.g01@gmail.com`.
+Versión actual: **V18**
 
-### Interpretación
+Nombre sugerido de commit:
 
-- **Saldo previsto:** ingresos previstos menos gastos previstos.
-- **Saldo real:** ingresos realmente recibidos menos gastos realmente pagados.
-- **Diferencia:** saldo real menos saldo previsto.
-
-
-## Versión 9 — Préstamos
-
-- Título visible: `Finanzas - V9`.
-- Nueva sección de Préstamos.
-- Al crear un préstamo:
-  - Registra el monto recibido como ingreso real del mes actual.
-  - Usa la categoría `Préstamo`.
-  - Genera las cuotas como gastos fijos previstos desde el mes elegido.
-  - Reparte correctamente los decimales y ajusta la última cuota.
-- Los ingresos y cuotas generados por préstamos no se copian al mes siguiente.
-- Cancelación anticipada:
-  - Se elige el mes de cancelación.
-  - La cuota de ese mes se ajusta al saldo restante.
-  - Las cuotas posteriores se eliminan.
-- Dashboard actualizado con préstamos activos, deuda pendiente y cuotas del mes.
-
-
-## Versión 10 — Préstamos flexibles y filtros
-
-- Título visible: `Finanzas - V10`.
-- Filtro por categoría en Gastos fijos.
-- Préstamos de cuotas fijas:
-  - Permiten indicar un nuevo total final al cancelar anticipadamente.
-  - El sistema descuenta los pagos anteriores y elimina cuotas futuras.
-- Préstamos con interés mensual y abono flexible:
-  - Interés mensual fijo.
-  - Abono previsto al capital.
-  - El pago real cubre primero el interés y luego reduce el capital.
-  - Si solo se paga el interés, el capital se mantiene.
-  - El capital no pagado no se duplica en el mes siguiente.
-  - Si al terminar el plazo referencial aún queda capital, se genera el siguiente pago.
-- Dashboard de préstamos actualizado.
-
-
-## Versión 11 — capital automático y filtro corregido
-
-- Título visible: `Finanzas - V11`.
-- El filtro por categoría de gastos fijos ahora se alinea a la izquierda.
-- En préstamos flexibles:
-  - El campo **Capital que planeas pagar por mes** se calcula automáticamente según el capital y el plazo.
-  - Sigue siendo editable manualmente.
-  - Si pagas más de lo previsto, el sistema recalcula los meses pendientes.
-  - Si pagas solo interés, el capital se mantiene.
-  - Los indicadores y el detalle del préstamo actualizan meses estimados y meses pendientes.
-
-
-## Versión 12 — Pensiones escolares
-
-- Título visible: `Finanzas - V12`.
-- Nueva sección especial **Pensiones escolares**.
-- Permite registrar alumno, periodo, matrícula, mensualidad y responsable inicial.
-- Responsable predeterminado: **Mayra**.
-- Genera automáticamente gastos fijos con categoría `Pensión escolar`.
-- Cronograma:
-  - Matrícula en marzo.
-  - Pensiones de marzo a diciembre.
-  - Julio programado para quincena.
-  - Diciembre programado para quincena.
-- Matriz anual con montos y checks por alumno.
-- Los pagos pueden marcarse desde la matriz.
-- Cada gasto generado puede editarse desde Gastos fijos, incluyendo el responsable Elber/Mayra.
-- Las pensiones escolares no se copian con la función de copiar gastos fijos del mes anterior.
-
-
-## Versión 13 — corrección de persistencia de checks
-
-- Corrige la pérdida de checks al cambiar de periodo y regresar.
-- Si se marcan varios pagos rápidamente, todos se agregan a una cola de guardado.
-- Firestore ya no reemplaza cambios locales mientras todavía se están sincronizando.
-- El estado muestra:
-  - `Guardando…`
-  - `Cambios pendientes…`
-  - `Sincronizado`
-
-
-## Versión 14 — monto previsto y real al registrar
-
-- Título visible: `Finanzas - V14`.
-- El formulario muestra siempre:
-  - Monto previsto.
-  - Monto real.
-- Si el monto real se deja vacío o en cero, se guarda como `0`.
-- Para gastos fijos y variables:
-  - El monto previsto es obligatorio.
-- Para ingresos:
-  - El monto previsto es opcional.
-  - El monto real puede registrarse directamente.
-- Si el monto real es mayor que cero, el registro se considera recibido o pagado.
-
-
-## Versión 15 — periodo anual y analítica financiera
-
-- Título visible: `Finanzas - V15`.
-- Resumen, Dashboard y Analítica incorporan el filtro:
-  - Mes seleccionado.
-  - Todos.
-- Regla especial para 2026:
-  - El periodo anual incluye únicamente agosto a diciembre.
-  - Enero a julio quedan fuera de dashboards, resúmenes y analítica anual.
-  - Los registros históricos de escolaridad de esos meses no afectan la analítica.
-- Desde 2027, la opción Todos considera enero a diciembre.
-- Nueva sección de Analítica financiera con:
-  - Puntaje de salud financiera.
-  - Tasa de ahorro real.
-  - Relación gastos/ingresos.
-  - Cumplimiento de ingresos.
-  - Desviación presupuestaria.
-  - Carga de gastos fijos.
-  - Carga de deuda.
-  - Evolución mensual.
-  - Diagnóstico simple.
-  - Comparación Elber, Mayra y General.
-
-
-## Versión 16 — saldo restante del mes anterior
-
-- Título visible: `Finanzas - V16`.
-- Cuando un mes termina con saldo real positivo, el siguiente mes muestra automáticamente:
-  - Concepto: `Saldo restante de <mes anterior>`.
-  - Categoría: `Saldo anterior`.
-  - Monto previsto y real iguales al saldo disponible.
-- Ejemplo:
-  - Agosto: ingreso real S/ 5.000 y gastos reales S/ 3.500.
-  - Septiembre recibe automáticamente `Saldo restante de agosto: S/ 1.500`.
-- Si el mes anterior termina en cero o negativo, no se genera saldo de arrastre.
-- El saldo es calculado, no se guarda como un registro editable; por eso se actualiza automáticamente cuando cambian ingresos o gastos anteriores.
-- En la vista anual, el saldo de apertura se incorpora solo una vez al inicio del periodo para evitar duplicar ingresos entre meses.
-
-
-## Versión 17 — filtro múltiple de meses e indicadores por categoría
-
-- Título visible: `Finanzas - V17`.
-- El selector de mes superior ahora funciona como un filtro con checks.
-- Permite elegir uno o varios meses.
-- La opción **Todos** marca todos los meses habilitados.
-- En 2026, Todos considera agosto a diciembre; enero a julio aparecen deshabilitados para la analítica.
-- Dashboard, Resumen y Analítica usan directamente los meses marcados en el filtro superior.
-- Se eliminaron los filtros repetidos dentro de esas secciones.
-- En Gastos fijos, al filtrar una categoría, los indicadores Previsto, Real y Pendiente se recalculan usando únicamente la categoría visible.
+`Actualizar V18 con cierre mensual, deshacer y analítica ampliada`
