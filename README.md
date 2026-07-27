@@ -1,4 +1,4 @@
-# Finanzas Elber y Mayra — V26
+# Finanzas Elber y Mayra — V2.1
 
 Aplicación web familiar para registrar, planificar y analizar ingresos, gastos, préstamos, pensiones escolares y saldos mensuales.
 
@@ -371,7 +371,7 @@ Antes de usar la V18 como versión definitiva, conviene validar:
 
 ## Versión
 
-Versión actual: **V26**
+Versión actual: **V2.1**
 
 Nombre sugerido de commit:
 
@@ -627,3 +627,30 @@ Los checks no necesitan estar marcados para que una cuota aparezca como prevista
 
 - Sin check: suma en previsto y pendiente.
 - Con check: suma en pagado.
+
+
+## Versión 2.1 — resumen previo al cierre mensual
+
+Al presionar `Cerrar mes`, la aplicación muestra una ventana central antes de confirmar.
+
+La ventana presenta:
+
+- Total de ingresos reales.
+- Total de gastos realizados.
+- Saldo restante.
+- Periodo que se está cerrando.
+- Advertencia si el saldo termina en negativo.
+
+El resumen utiliza la vista seleccionada:
+
+- General.
+- Elber.
+- Mayra.
+
+El cierre solo se ejecuta después de presionar `Confirmar cierre`.
+
+Al confirmar:
+
+- El mes queda bloqueado.
+- Se guarda la fotografía financiera de Elber, Mayra y General.
+- El saldo cerrado puede alimentar el siguiente mes.

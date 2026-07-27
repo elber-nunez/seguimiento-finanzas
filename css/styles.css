@@ -263,3 +263,25 @@ h1,h2,p{margin-top:0}
 .school-card-summary{display:flex;flex-direction:column;align-items:flex-end}
 .school-card-delete{margin-top:7px;padding:5px 9px;border:1px solid #fecaca;border-radius:8px;background:#fff;color:#b91c1c;font-size:.68rem;font-weight:850;cursor:pointer}
 .school-card-delete:hover{background:#fee2e2}
+
+.month-closure-card{width:min(560px,100%)}
+.month-closure-heading{display:flex;align-items:center;gap:13px;margin-bottom:12px}
+.month-closure-heading h2{margin:0}.month-closure-heading p{margin:4px 0 0;color:var(--muted);font-size:.78rem}
+.month-closure-icon{display:grid;place-items:center;width:42px;height:42px;border-radius:14px;background:#dcfce7;color:#15803d;font-size:1.15rem;font-weight:900}
+.month-closure-description{margin:0 0 16px;color:var(--muted);font-size:.78rem;line-height:1.5}
+.month-closure-summary{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+.month-closure-summary article{padding:15px;border:1px solid var(--line);border-radius:14px;background:#f8fafc}
+.month-closure-summary span,.month-closure-summary small{display:block}
+.month-closure-summary span{color:var(--muted);font-size:.72rem}
+.month-closure-summary strong{display:block;margin:7px 0;font-size:1.25rem}
+.month-closure-summary small{color:var(--muted);font-size:.66rem;line-height:1.35}
+.month-closure-balance{grid-column:1/-1;background:#eff6ff!important;border-color:#bfdbfe!important}
+.month-closure-balance strong{font-size:1.55rem;color:#1d4ed8}
+.month-closure-warning{margin-top:12px;padding:11px 13px;border:1px solid #fecaca;border-radius:12px;background:#fef2f2;color:#b91c1c;font-size:.75rem;font-weight:800}
+.month-closure-actions{display:flex;justify-content:flex-end;gap:9px;margin-top:18px}
+@media(max-width:520px){
+  .month-closure-summary{grid-template-columns:1fr}
+  .month-closure-balance{grid-column:auto}
+  .month-closure-actions{flex-direction:column-reverse}
+  .month-closure-actions button{width:100%}
+}

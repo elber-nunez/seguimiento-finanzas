@@ -20,6 +20,7 @@ let saveQueued = false;
 let undoSnapshot = null;
 let undoTimer = null;
 let syncingCarryover = false;
+let pendingMonthClosureKey = null;
 
 function allowedMonthIndexes(year=Number($("yearPicker").value)) {
   // En 2026 la analítica y los resúmenes comienzan en agosto.
@@ -236,8 +237,61 @@ function updateMonthCloseButton() {
   button.classList.toggle("reopen",closed);
 }
 
+function closeMonthClosureModal() {
+  pendingMonthClosureKey=null;
+  $("monthClosureModal").classList.remove("open");
+}
+
+function openMonthClosureModal(key) {
+  const totals=calculateTotals(state,key,selectedProfile);
+  const balance=totals.available;
+
+  pendingMonthClosureKey=key;
+  $("monthClosurePeriod").textContent=periodNote();
+  $("monthClosureIncome").textContent=money(totals.incomeActual);
+  $("monthClosureExpense").textContent=money(totals.expenseActual);
+  $("monthClosureBalance").textContent=money(balance);
+  $("monthClosureBalance").classList.toggle("negative-value",balance<0);
+
+  const warning=$("monthClosureWarning");
+  warning.classList.toggle("hidden",balance>=0);
+  warning.textContent=balance<0
+    ? `El mes cerrará con un saldo negativo de ${money(Math.abs(balance))}.`
+    : "";
+
+  $("monthClosureBalanceHelp").textContent=balance>=0
+    ? "Este saldo podrá pasar al siguiente mes."
+    : "Los gastos superan a los ingresos reales.";
+
+  $("monthClosureModal").classList.add("open");
+}
+
+async function confirmMonthClosure() {
+  const key=pendingMonthClosureKey;
+  if(!key) return;
+
+  prepareUndo("Mes cerrado");
+  state.monthClosures[key]={
+    closed:true,
+    closedAt:new Date().toISOString(),
+    closedBy:currentUser?.email||"",
+    snapshot:{
+      elber:calculateTotals(state,key,"elber"),
+      mayra:calculateTotals(state,key,"mayra"),
+      general:calculateTotals(state,key,"general")
+    }
+  };
+
+  closeMonthClosureModal();
+  renderAll();
+  await persist();
+}
+
 async function toggleMonthClosure() {
-  if(sortedSelectedMonths().length!==1) return alert("Selecciona un solo mes para cerrarlo o reabrirlo.");
+  if(sortedSelectedMonths().length!==1){
+    return alert("Selecciona un solo mes para cerrarlo o reabrirlo.");
+  }
+
   const key=currentKey();
   state.monthClosures ||= {};
 
@@ -250,20 +304,7 @@ async function toggleMonthClosure() {
     return;
   }
 
-  if(!confirm(`¿Cerrar ${periodNote()}? El mes quedará bloqueado y el saldo final se usará para el siguiente mes.`)) return;
-  prepareUndo("Mes cerrado");
-  state.monthClosures[key]={
-    closed:true,
-    closedAt:new Date().toISOString(),
-    closedBy:currentUser?.email||"",
-    snapshot:{
-      elber:calculateTotals(state,key,"elber"),
-      mayra:calculateTotals(state,key,"mayra"),
-      general:calculateTotals(state,key,"general")
-    }
-  };
-  renderAll();
-  await persist();
+  openMonthClosureModal(key);
 }
 
 async function persist() {
@@ -1323,6 +1364,12 @@ function bindUi() {
   $("profileSelect").addEventListener("change",renderAll);
   $("fixedCategoryFilter").addEventListener("change",renderFixed);
   $("monthCloseBtn").addEventListener("click",toggleMonthClosure);
+  $("closeMonthClosureModalBtn").addEventListener("click",closeMonthClosureModal);
+  $("cancelMonthClosureBtn").addEventListener("click",closeMonthClosureModal);
+  $("confirmMonthClosureBtn").addEventListener("click",confirmMonthClosure);
+  $("monthClosureModal").addEventListener("click",event=>{
+    if(event.target===$("monthClosureModal")) closeMonthClosureModal();
+  });
   $("undoBtn").addEventListener("click",undoLastChange);
   $("dismissUndoBtn").addEventListener("click",dismissUndo);
   $("googleLoginBtn").addEventListener("click",async()=>{

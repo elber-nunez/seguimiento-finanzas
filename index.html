@@ -4,7 +4,7 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
   <meta name="theme-color" content="#0f172a">
-  <title>Finanzas - V26</title>
+  <title>Finanzas - V2.1</title>
   <link rel="stylesheet" href="css/styles.css">
   <link rel="stylesheet" href="css/layout.css">
   <link rel="stylesheet" href="css/dashboard.css">
@@ -28,7 +28,7 @@
       <div class="sidebar-brand">
         <div>
           <strong>Finanzas</strong>
-          <span>Elber y Mayra · V26</span>
+          <span>Elber y Mayra · V2.1</span>
         </div>
         <button id="closeSidebarBtn" class="close-sidebar-btn" type="button" aria-label="Cerrar menú">×</button>
       </div>
@@ -558,6 +558,49 @@
           </article>
         </section>
       </main>
+    </div>
+  </div>
+
+  <div id="monthClosureModal" class="modal">
+    <div class="modal-card month-closure-card">
+      <button id="closeMonthClosureModalBtn" class="modal-close" type="button">×</button>
+
+      <div class="month-closure-heading">
+        <span class="month-closure-icon">✓</span>
+        <div>
+          <h2>Cerrar mes</h2>
+          <p id="monthClosurePeriod">Agosto 2026</p>
+        </div>
+      </div>
+
+      <p class="month-closure-description">
+        Revisa el resultado del mes antes de cerrarlo. Una vez cerrado, los registros quedarán bloqueados hasta que vuelvas a reabrirlo.
+      </p>
+
+      <div class="month-closure-summary">
+        <article>
+          <span>Total de ingresos reales</span>
+          <strong id="monthClosureIncome">S/ 0,00</strong>
+          <small>Dinero recibido durante el mes</small>
+        </article>
+        <article>
+          <span>Total de gastos realizados</span>
+          <strong id="monthClosureExpense">S/ 0,00</strong>
+          <small>Pagos registrados durante el mes</small>
+        </article>
+        <article class="month-closure-balance">
+          <span>Saldo restante</span>
+          <strong id="monthClosureBalance">S/ 0,00</strong>
+          <small id="monthClosureBalanceHelp">Ingresos reales menos gastos reales</small>
+        </article>
+      </div>
+
+      <div id="monthClosureWarning" class="month-closure-warning hidden"></div>
+
+      <div class="month-closure-actions">
+        <button id="cancelMonthClosureBtn" class="secondary-btn" type="button">Cancelar</button>
+        <button id="confirmMonthClosureBtn" class="primary-btn" type="button">Confirmar cierre</button>
+      </div>
     </div>
   </div>
 
