@@ -21,6 +21,7 @@ let undoSnapshot = null;
 let undoTimer = null;
 let syncingCarryover = false;
 let pendingMonthClosureKey = null;
+let pendingMonthClosureOwners = [];
 
 function allowedMonthIndexes(year=Number($("yearPicker").value)) {
   // En 2026 la analítica y los resúmenes comienzan en agosto.
@@ -195,18 +196,26 @@ async function undoLastChange() {
   await persist();
 }
 
-function isMonthClosed(key=currentKey()) {
-  return Boolean(state.monthClosures?.[key]?.closed);
+function closureOwnersForProfile(profile=selectedProfile) {
+  return profile==="general" ? ["elber","mayra"] : [profile];
 }
 
-function closedMonthMessage(key=currentKey()) {
+function isMonthClosed(key=currentKey(),owner=selectedProfile) {
+  if(owner==="general"){
+    return ["elber","mayra"].every(person=>Boolean(state.monthClosures?.[key]?.[person]?.closed));
+  }
+  return Boolean(state.monthClosures?.[key]?.[owner]?.closed);
+}
+
+function closedMonthMessage(key=currentKey(),owner=selectedProfile) {
   const [year,month]=key.split("-").map(Number);
-  return `${MONTHS[month-1]} ${year} está cerrado. Reabre el mes para modificarlo.`;
+  const person=owner==="general" ? "Elber y Mayra" : NAMES[owner];
+  return `${MONTHS[month-1]} ${year} está cerrado para ${person}. Reabre el mes para modificarlo.`;
 }
 
-function assertMonthOpen(key=currentKey()) {
-  if(!isMonthClosed(key)) return true;
-  alert(closedMonthMessage(key));
+function assertMonthOpen(key=currentKey(),owner=selectedProfile) {
+  if(!isMonthClosed(key,owner)) return true;
+  alert(closedMonthMessage(key,owner));
   return false;
 }
 
@@ -231,23 +240,29 @@ function updateMonthCloseButton() {
     button.classList.remove("reopen");
     return;
   }
+
   button.disabled=false;
-  const closed=isMonthClosed(currentKey());
+  const closed=isMonthClosed(currentKey(),selectedProfile);
   button.textContent=closed?"Reabrir mes":"Cerrar mes";
   button.classList.toggle("reopen",closed);
 }
 
 function closeMonthClosureModal() {
   pendingMonthClosureKey=null;
+  pendingMonthClosureOwners=[];
   $("monthClosureModal").classList.remove("open");
 }
 
 function openMonthClosureModal(key) {
   const totals=calculateTotals(state,key,selectedProfile);
   const balance=totals.available;
-
   pendingMonthClosureKey=key;
+  pendingMonthClosureOwners=closureOwnersForProfile(selectedProfile);
+
   $("monthClosurePeriod").textContent=periodNote();
+  $("monthClosureTarget").textContent=selectedProfile==="general"
+    ? "Usuarios: Elber y Mayra"
+    : `Usuario: ${NAMES[selectedProfile]}`;
   $("monthClosureIncome").textContent=money(totals.incomeActual);
   $("monthClosureExpense").textContent=money(totals.expenseActual);
   $("monthClosureBalance").textContent=money(balance);
@@ -268,19 +283,21 @@ function openMonthClosureModal(key) {
 
 async function confirmMonthClosure() {
   const key=pendingMonthClosureKey;
-  if(!key) return;
+  const owners=[...pendingMonthClosureOwners];
+  if(!key || !owners.length) return;
 
   prepareUndo("Mes cerrado");
-  state.monthClosures[key]={
-    closed:true,
-    closedAt:new Date().toISOString(),
-    closedBy:currentUser?.email||"",
-    snapshot:{
-      elber:calculateTotals(state,key,"elber"),
-      mayra:calculateTotals(state,key,"mayra"),
-      general:calculateTotals(state,key,"general")
-    }
-  };
+  state.monthClosures ||= {};
+  state.monthClosures[key] ||= {};
+
+  owners.forEach(owner=>{
+    state.monthClosures[key][owner]={
+      closed:true,
+      closedAt:new Date().toISOString(),
+      closedBy:currentUser?.email||"",
+      snapshot:calculateTotals(state,key,owner)
+    };
+  });
 
   closeMonthClosureModal();
   renderAll();
@@ -293,18 +310,42 @@ async function toggleMonthClosure() {
   }
 
   const key=currentKey();
+  const owners=closureOwnersForProfile(selectedProfile);
   state.monthClosures ||= {};
+  state.monthClosures[key] ||= {};
 
-  if(isMonthClosed(key)){
-    if(!confirm(`¿Reabrir ${periodNote()} para permitir modificaciones?`)) return;
+  if(isMonthClosed(key,selectedProfile)){
+    const target=selectedProfile==="general" ? "Elber y Mayra" : NAMES[selectedProfile];
+    if(!confirm(`¿Reabrir ${periodNote()} para ${target}?`)) return;
+
     prepareUndo("Mes reabierto");
-    delete state.monthClosures[key];
+    owners.forEach(owner=>delete state.monthClosures[key][owner]);
+    if(!Object.keys(state.monthClosures[key]).length) delete state.monthClosures[key];
+
     renderAll();
     await persist();
     return;
   }
 
   openMonthClosureModal(key);
+}
+
+function nextMonthKey(key) {
+  const [year,month]=key.split("-").map(Number);
+  const date=new Date(year,month,1);
+  return `${date.getFullYear()}-${String(date.getMonth()+1).padStart(2,"0")}`;
+}
+
+function syncAllEligibleCarryovers() {
+  const keys=new Set(Object.keys(state.months||{}));
+  Object.keys(state.months||{}).forEach(key=>keys.add(nextMonthKey(key)));
+  keys.add(currentKey());
+
+  [...keys].sort().forEach(key=>{
+    ["elber","mayra"].forEach(owner=>{
+      syncCarryoverForMonth(state,key,owner,new Date());
+    });
+  });
 }
 
 async function persist() {
@@ -321,6 +362,10 @@ async function persist() {
     do {
       saveQueued = false;
       setSyncStatus("saving","Guardando…");
+
+      // Recalcula saldos automáticos, incluso si el mes siguiente no está abierto
+      // en pantalla. Así, al reabrir y modificar agosto, septiembre se actualiza.
+      syncAllEligibleCarryovers();
 
       // Guardamos una copia estable. Si el usuario marca otro check
       // mientras se guarda, saveQueued obliga a una nueva escritura.
@@ -429,8 +474,7 @@ function itemRow(item,type,editable=true,withCheck=false) {
 
 function renderIncome() {
   const data = getProfileData(state,currentKey(),selectedProfile);
-  const locked=isMonthClosed(currentKey());
-  data.incomes.forEach(item=>item.locked=locked);
+  data.incomes.forEach(item=>item.locked=isMonthClosed(currentKey(),item.owner==="general"?selectedProfile:item.owner));
   const totals = calculateTotals(state,currentKey(),selectedProfile);
   $("incomePlannedTotal").textContent = money(totals.incomePlanned);
   $("incomeActualTotal").textContent = money(totals.incomeActual);
@@ -443,8 +487,7 @@ function renderIncome() {
 
 function renderFixed() {
   const data = getProfileData(state,currentKey(),selectedProfile);
-  const locked=isMonthClosed(currentKey());
-  data.fixed.forEach(item=>item.locked=locked);
+  data.fixed.forEach(item=>item.locked=isMonthClosed(currentKey(),item.owner));
   const currentFilter=$("fixedCategoryFilter").value || "all";
   const categories=[...new Set(data.fixed.map(item=>item.category).filter(Boolean))].sort((x,y)=>x.localeCompare(y,"es"));
   $("fixedCategoryFilter").innerHTML='<option value="all">Todas las categorías</option>'+categories.map(category=>`<option>${escapeHtml(category)}</option>`).join("");
@@ -470,8 +513,7 @@ function renderFixed() {
 
 function renderVariable() {
   const data = getProfileData(state,currentKey(),selectedProfile);
-  const locked=isMonthClosed(currentKey());
-  data.variable.forEach(item=>item.locked=locked);
+  data.variable.forEach(item=>item.locked=isMonthClosed(currentKey(),item.owner));
   const totals = calculateTotals(state,currentKey(),selectedProfile);
   $("variablePlannedTotal").textContent = money(totals.variablePlanned);
   $("variableActualTotal").textContent = money(totals.variableActual);
@@ -547,7 +589,7 @@ function renderSummary() {
 async function updateRealized(kind,id,owner,realized,checkElement) {
   const location=findRecordLocation(kind,id,owner);
   if(!location) return;
-  if(!assertMonthOpen(location.key)){
+  if(!assertMonthOpen(location.key,location.owner)){
     checkElement.checked=!realized;
     return;
   }
@@ -613,7 +655,7 @@ function bindEditRows(container) {
 function openRecordModal(kind,id=null,owner=null) {
   const location=id ? findRecordLocation(kind,id,owner) : null;
   const targetKey=location?.key || currentKey();
-  if(!assertMonthOpen(targetKey)) return;
+  if(!assertMonthOpen(targetKey,location?.owner || owner || selectedOwner())) return;
   $("recordForm").reset();
   $("recordId").value=id||"";$("recordKind").value=kind;$("recordOwner").value=owner||selectedOwner();$("recordDate").value=today();
   const categoryType = kind==="income" ? "income" : "expense";
@@ -658,7 +700,7 @@ function closeModal(){ $("formModal").classList.remove("open"); }
 
 async function saveRecord(event) {
   event.preventDefault();
-  if(!assertMonthOpen()) return;
+  if(!assertMonthOpen(currentKey(),$("recordOwner").value)) return;
   prepareUndo($("recordId").value ? "Registro actualizado" : "Registro agregado");
   const id=$("recordId").value||uid(), kind=$("recordKind").value, owner=$("recordOwner").value;
   const month=ensureMonth(state,currentKey());
@@ -712,7 +754,7 @@ async function deleteRecord() {
   const id=$("recordId").value, kind=$("recordKind").value;
   const location=findRecordLocation(kind,id);
   if(!id || !location || !confirm("¿Eliminar este registro?")) return;
-  if(!assertMonthOpen(location.key)) return;
+  if(!assertMonthOpen(location.key,location.owner)) return;
   prepareUndo("Registro eliminado");
   if(location.item.sourceType==="carryover"){
     suppressCarryover(state,location.key,location.owner);
@@ -755,7 +797,7 @@ function isLoanRelatedRecord(item) {
 async function copyPreviousIncomes() {
   const person=selectedConfigurationUser();
   if(!person) return;
-  if(!assertMonthOpen()) return;
+  if(!assertMonthOpen(currentKey(),person)) return;
 
   const destination=currentKey();
   const source=previousMonthKey(destination);
@@ -816,7 +858,7 @@ function isGeneratedFixedExpense(item) {
 async function copyPreviousFixed() {
   const person=selectedConfigurationUser();
   if(!person) return;
-  if(!assertMonthOpen()) return;
+  if(!assertMonthOpen(currentKey(),person)) return;
 
   const destination=currentKey();
   const source=previousMonthKey(destination);
@@ -911,7 +953,7 @@ function renderCategoryEditors() {
 async function resetMonth() {
   const person=selectedConfigurationUser();
   if(!person) return;
-  if(!assertMonthOpen()) return;
+  if(!assertMonthOpen(currentKey(),person)) return;
 
   const key=currentKey();
   const month=ensureMonth(state,key);
@@ -981,7 +1023,7 @@ function renderSchoolPensions() {
       ${pensions.map(pension=>{
         const record=pensionRecords(state,pension.id).find(({item})=>item.schoolRowKey===row.key);
         if(!record) return "<td>—</td><td>—</td>";
-        const locked=isMonthClosed(record.periodKey);
+        const locked=isMonthClosed(record.periodKey,record.owner);
         return `<td class="school-amount-cell ${locked?"locked":""}" ${locked?"":`data-school-edit="${record.item.id}" data-owner="${record.owner}"`}>${money(record.item.plannedAmount)}</td>
           <td><input type="checkbox" data-school-check="${record.item.id}" data-owner="${record.owner}" ${record.item.realized?"checked":""} ${locked?"disabled":""}></td>`;
       }).join("")}
@@ -1033,8 +1075,8 @@ function renderSchoolPensions() {
 
 function openSchoolModal(id=null) {
   if(id){
-    const closed=pensionRecords(state,id).find(record=>isMonthClosed(record.periodKey));
-    if(closed) return alert(closedMonthMessage(closed.periodKey));
+    const closed=pensionRecords(state,id).find(record=>isMonthClosed(record.periodKey,record.owner));
+    if(closed) return alert(closedMonthMessage(closed.periodKey,closed.owner));
   }
   $("schoolForm").reset();
   $("schoolPensionId").value=id||"";
@@ -1074,7 +1116,7 @@ async function saveSchoolPension(event) {
   };
   if(!id){
     const targetYear=Number(values.year);
-    const closedKey=Object.keys(state.monthClosures||{}).find(key=>key.startsWith(`${targetYear}-`) && isMonthClosed(key));
+    const closedKey=Object.keys(state.monthClosures||{}).find(key=>key.startsWith(`${targetYear}-`) && isMonthClosed(key,owner));
     if(closedKey) return alert(closedMonthMessage(closedKey));
     const duplicate=(state.schoolPensions||[]).some(item=>
       item.studentName.trim().toLowerCase()===values.studentName.trim().toLowerCase() &&
@@ -1093,8 +1135,8 @@ async function saveSchoolPension(event) {
 }
 
 async function removeSchoolPensionById(id) {
-  const closed=pensionRecords(state,id).find(record=>isMonthClosed(record.periodKey));
-  if(closed) return alert(closedMonthMessage(closed.periodKey));
+  const closed=pensionRecords(state,id).find(record=>isMonthClosed(record.periodKey,record.owner));
+  if(closed) return alert(closedMonthMessage(closed.periodKey,closed.owner));
   if(!id || !confirm("¿Eliminar esta pensión escolar y todos sus pagos relacionados?")) return;
 
   if(deleteSchoolPension(state,id)){
@@ -1232,8 +1274,8 @@ function openLoanModal(id=null,registrationMode="new") {
   if(!id && !assertMonthOpen()) return;
   if(id){
     const records=loanRecords(state,id);
-    const closed=records.incomes.concat(records.installments).find(record=>isMonthClosed(record.monthKey));
-    if(closed) return alert(closedMonthMessage(closed.monthKey));
+    const closed=records.incomes.concat(records.installments).find(record=>isMonthClosed(record.monthKey,record.owner));
+    if(closed) return alert(closedMonthMessage(closed.monthKey,closed.owner));
   }
   $("loanForm").reset();
   $("loanId").value=id||"";
@@ -1347,8 +1389,8 @@ async function saveLoan(event) {
 async function removeLoan() {
   const id=$("loanId").value;
   const records=loanRecords(state,id);
-  const closed=records.incomes.concat(records.installments).find(record=>isMonthClosed(record.monthKey));
-  if(closed) return alert(closedMonthMessage(closed.monthKey));
+  const closed=records.incomes.concat(records.installments).find(record=>isMonthClosed(record.monthKey,record.owner));
+  if(closed) return alert(closedMonthMessage(closed.monthKey,closed.owner));
   if(!id || !confirm("¿Eliminar este préstamo y sus registros relacionados?")) return;
   if(deleteLoan(state,id)){
     prepareUndo("Préstamo eliminado");

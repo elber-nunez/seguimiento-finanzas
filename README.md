@@ -1,4 +1,4 @@
-# Finanzas Elber y Mayra — V2.1
+# Finanzas Elber y Mayra — V2.2
 
 Aplicación web familiar para registrar, planificar y analizar ingresos, gastos, préstamos, pensiones escolares y saldos mensuales.
 
@@ -371,7 +371,7 @@ Antes de usar la V18 como versión definitiva, conviene validar:
 
 ## Versión
 
-Versión actual: **V2.1**
+Versión actual: **V2.2**
 
 Nombre sugerido de commit:
 
@@ -654,3 +654,32 @@ Al confirmar:
 - El mes queda bloqueado.
 - Se guarda la fotografía financiera de Elber, Mayra y General.
 - El saldo cerrado puede alimentar el siguiente mes.
+
+
+## Versión 2.2 — cierre independiente y actualización del saldo siguiente
+
+### Cierre por usuario
+
+El cierre mensual ahora se guarda de manera independiente:
+
+- Si la vista está en Elber, se cierra únicamente Elber.
+- Si la vista está en Mayra, se cierra únicamente Mayra.
+- Si la vista está en General, se cierran Elber y Mayra.
+- El botón Reabrir aplica la misma lógica.
+
+Un usuario puede mantener su mes abierto aunque el otro ya lo haya cerrado.
+
+### Reapertura y saldo del mes siguiente
+
+Cuando se reabre un mes y se modifican ingresos, gastos o checks:
+
+- Se recalcula el saldo final del mes reabierto.
+- Se actualiza automáticamente el registro `Saldo restante de <mes anterior>` del mes siguiente.
+- La actualización ocurre aunque el mes siguiente no esté abierto en pantalla.
+- Si el saldo del mes anterior queda en cero o negativo, el saldo automático del mes siguiente se elimina.
+- Los saldos editados manualmente o eliminados manualmente mantienen su comportamiento configurado.
+
+### Navegador
+
+- El título de la pestaña ahora muestra únicamente `Finanzas`.
+- Se agregó un favicon con el icono 💰.

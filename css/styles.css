@@ -285,3 +285,5 @@ h1,h2,p{margin-top:0}
   .month-closure-actions{flex-direction:column-reverse}
   .month-closure-actions button{width:100%}
 }
+
+.month-closure-heading small{display:block;margin-top:4px;color:#315b7d;font-size:.7rem;font-weight:800}

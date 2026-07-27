@@ -51,6 +51,28 @@ export function normalizeState(state) {
   normalized.loans ||= [];
   normalized.schoolPensions ||= [];
   normalized.monthClosures ||= {};
+
+  // Migración de cierres antiguos: antes el cierre se guardaba una sola vez
+  // por mes. Desde V2.2 se guarda de forma independiente por usuario.
+  Object.entries(normalized.monthClosures).forEach(([key,closure])=>{
+    if(closure?.closed && closure?.snapshot){
+      normalized.monthClosures[key]={
+        elber: closure.snapshot.elber ? {
+          closed:true,
+          closedAt:closure.closedAt,
+          closedBy:closure.closedBy,
+          snapshot:closure.snapshot.elber
+        } : null,
+        mayra: closure.snapshot.mayra ? {
+          closed:true,
+          closedAt:closure.closedAt,
+          closedBy:closure.closedBy,
+          snapshot:closure.snapshot.mayra
+        } : null
+      };
+    }
+  });
+
   normalized.carryoverControls ||= {};
   normalized.ui ||= { selectedProfile:"general" };
   normalized.settings ||= {};
@@ -126,9 +148,13 @@ function monthLabel(key) {
 }
 
 function closingBalance(state,key,profile) {
-  const closure=state.monthClosures?.[key];
-  if(closure?.closed && closure.snapshot?.[profile]){
-    return Number(closure.snapshot[profile].available||0);
+  if(profile==="general"){
+    return closingBalance(state,key,"elber")+closingBalance(state,key,"mayra");
+  }
+
+  const closure=state.monthClosures?.[key]?.[profile];
+  if(closure?.closed && closure.snapshot){
+    return Number(closure.snapshot.available||0);
   }
 
   const data=rawProfileData(state,key,profile);
