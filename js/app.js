@@ -927,7 +927,7 @@ function renderSchoolPensions() {
   $("schoolMatrixHead").innerHTML=`
     <tr>
       <th>Mensualidad</th>
-      ${pensions.map(pension=>`<th colspan="2">${escapeHtml(pension.studentName)}</th>`).join("")}
+      ${pensions.map(pension=>`<th colspan="2"><span class="school-head-name">${escapeHtml(pension.studentName)}</span><button class="school-delete-inline" type="button" data-delete-school="${pension.id}" title="Eliminar pensión">×</button></th>`).join("")}
     </tr>
     <tr>
       <th></th>
@@ -965,9 +965,10 @@ function renderSchoolPensions() {
         <strong>${escapeHtml(pension.studentName)}</strong>
         <span>Periodo ${pension.year} · Responsable inicial ${NAMES[pension.owner]}</span>
       </div>
-      <div>
+      <div class="school-card-summary">
         <strong>${money(total)}</strong>
         <span>${paidCount} de ${records.length} pagos realizados</span>
+        <button type="button" class="school-card-delete" data-delete-school="${pension.id}">Eliminar</button>
       </div>
     </article>`;
   }).join("") : '<div class="empty">No hay pensiones escolares para este periodo.</div>';
@@ -977,6 +978,12 @@ function renderSchoolPensions() {
   });
   document.querySelectorAll("[data-school-edit]").forEach(cell=>{
     cell.addEventListener("click",()=>openRecordModal("fixed",cell.dataset.schoolEdit,cell.dataset.owner));
+  });
+  document.querySelectorAll("[data-delete-school]").forEach(button=>{
+    button.addEventListener("click",event=>{
+      event.stopPropagation();
+      removeSchoolPensionById(button.dataset.deleteSchool);
+    });
   });
   document.querySelectorAll("[data-school-pension-id]").forEach(card=>{
     card.addEventListener("click",()=>openSchoolModal(card.dataset.schoolPensionId));
@@ -1044,17 +1051,21 @@ async function saveSchoolPension(event) {
   await persist();
 }
 
-async function removeSchoolPension() {
-  const id=$("schoolPensionId").value;
+async function removeSchoolPensionById(id) {
   const closed=pensionRecords(state,id).find(record=>isMonthClosed(record.periodKey));
   if(closed) return alert(closedMonthMessage(closed.periodKey));
   if(!id || !confirm("¿Eliminar esta pensión escolar y todos sus pagos relacionados?")) return;
+
   if(deleteSchoolPension(state,id)){
     prepareUndo("Pensión escolar eliminada");
     closeSchoolModal();
     renderAll();
     await persist();
   }
+}
+
+async function removeSchoolPension() {
+  await removeSchoolPensionById($("schoolPensionId").value);
 }
 
 function renderLoans() {

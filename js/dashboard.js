@@ -36,22 +36,54 @@ export function renderDashboard(state,key,profile) {
 
   const ordered = Object.entries(categories).sort((a,b)=>b[1].planned-a[1].planned);
   const categoryMax = ordered.length ? Math.max(...ordered.flatMap(([,v])=>[v.planned,v.actual]),1) : 1;
-  $("categoryChart").innerHTML = ordered.length ? ordered.map(([name,value])=>`
-    <div class="category-comparison">
-      <div class="category-name">${escapeHtml(name)}</div>
-      <div class="category-double-bars">
-        <div class="category-track"><i class="category-fill planned-category" style="width:${Math.max(value.planned?3:0,value.planned/categoryMax*100)}%"></i></div>
-        <div class="category-track"><i class="category-fill actual-category" style="width:${Math.max(value.actual?3:0,value.actual/categoryMax*100)}%"></i></div>
-      </div>
-      <div class="category-values"><span>P ${money(value.planned)}</span><span>R ${money(value.actual)}</span></div>
+  $("categoryChart").innerHTML = ordered.length ? `
+    <div class="category-vertical-chart">
+      ${ordered.map(([name,value])=>`
+        <div class="category-vertical-item">
+          <div class="category-vertical-values">
+            <span>P ${money(value.planned)}</span>
+            <span>R ${money(value.actual)}</span>
+          </div>
+          <div class="category-columns">
+            <div class="category-column-track">
+              <i class="category-column planned-category" style="height:${Math.max(value.planned?4:0,value.planned/categoryMax*100)}%"></i>
+            </div>
+            <div class="category-column-track">
+              <i class="category-column actual-category" style="height:${Math.max(value.actual?4:0,value.actual/categoryMax*100)}%"></i>
+            </div>
+          </div>
+          <div class="category-vertical-name" title="${escapeHtml(name)}">${escapeHtml(name)}</div>
+        </div>`).join("")}
     </div>
-  `).join("") : '<div class="empty">No hay gastos registrados.</div>';
+    <div class="category-vertical-legend">
+      <span><i class="planned"></i>Previsto</span>
+      <span><i class="actual"></i>Real</span>
+    </div>`
+    : '<div class="empty">No hay gastos registrados.</div>';
 
-  const loanData=loanMetrics(state,profile,key);
-  $("dashboardLoanActive").textContent=String(loanData.active);
-  $("dashboardLoanPending").textContent=money(loanData.pending);
-  $("dashboardLoanMonthPlanned").textContent=money(loanData.monthPlanned);
-  $("dashboardLoanMonthActual").textContent=money(loanData.monthActual);
+  const selectedKeys=new Set(Array.isArray(key)?key:[key]);
+  const owners=profile==="general"?["elber","mayra"]:[profile];
+  const periodInstallments=[];
+  Object.entries(state.months||{}).forEach(([monthKey,month])=>{
+    if(!selectedKeys.has(monthKey)) return;
+    owners.forEach(owner=>{
+      (month[owner]?.fixed||[]).forEach(item=>{
+        if(item.loanId || item.sourceType==="loan-installment"){
+          periodInstallments.push(item);
+        }
+      });
+    });
+  });
+
+  const periodLoanIds=new Set(periodInstallments.map(item=>item.loanId).filter(Boolean));
+  const periodPlanned=periodInstallments.reduce((sum,item)=>sum+Number(item.plannedAmount||0),0);
+  const periodActual=periodInstallments.filter(item=>item.realized).reduce((sum,item)=>sum+Number(item.actualAmount||0),0);
+  const periodPending=periodInstallments.filter(item=>!item.realized).reduce((sum,item)=>sum+Number(item.plannedAmount||0),0);
+
+  $("dashboardLoanActive").textContent=String(periodLoanIds.size);
+  $("dashboardLoanPending").textContent=money(periodPending);
+  $("dashboardLoanMonthPlanned").textContent=money(periodPlanned);
+  $("dashboardLoanMonthActual").textContent=money(periodActual);
 
   $("comparisonPanel").classList.toggle("hidden",profile!=="general");
   if (profile==="general") {

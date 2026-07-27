@@ -255,3 +255,11 @@ h1,h2,p{margin-top:0}
 }
 
 .status-tag.carryover{background:#e0f2fe;color:#075985}
+
+.school-matrix thead th{position:relative}
+.school-head-name{display:inline-block;padding-right:24px}
+.school-delete-inline{position:absolute;right:7px;top:50%;transform:translateY(-50%);display:grid;place-items:center;width:22px;height:22px;border:0;border-radius:50%;background:rgba(255,255,255,.18);color:#fff;font-size:1rem;font-weight:900;cursor:pointer}
+.school-delete-inline:hover{background:#dc2626}
+.school-card-summary{display:flex;flex-direction:column;align-items:flex-end}
+.school-card-delete{margin-top:7px;padding:5px 9px;border:1px solid #fecaca;border-radius:8px;background:#fff;color:#b91c1c;font-size:.68rem;font-weight:850;cursor:pointer}
+.school-card-delete:hover{background:#fee2e2}

@@ -1,4 +1,4 @@
-# Finanzas Elber y Mayra — V24
+# Finanzas Elber y Mayra — V25
 
 Aplicación web familiar para registrar, planificar y analizar ingresos, gastos, préstamos, pensiones escolares y saldos mensuales.
 
@@ -371,7 +371,7 @@ Antes de usar la V18 como versión definitiva, conviene validar:
 
 ## Versión
 
-Versión actual: **V24**
+Versión actual: **V25**
 
 Nombre sugerido de commit:
 
@@ -566,3 +566,35 @@ Si agosto termina con S/ 1.500 positivos:
 - Septiembre recibe `Saldo restante de agosto: S/ 1.500`.
 - Octubre no recibe nada anticipadamente.
 - Cuando octubre comience, se calcula el saldo real con el que terminó septiembre.
+
+
+## Versión 25 — dashboard por periodo y eliminación de pensiones
+
+### Préstamos en el Dashboard
+
+Los indicadores de préstamos ahora usan únicamente los meses seleccionados:
+
+- Préstamos con cuotas en el periodo.
+- Pendiente del periodo.
+- Cuotas previstas del periodo.
+- Cuotas pagadas del periodo.
+
+Al seleccionar un solo mes, muestran exclusivamente ese mes. Al seleccionar varios meses o Todos, consolidan únicamente esos meses.
+
+### Gastos por categoría
+
+El gráfico cambió de barras horizontales a barras verticales.
+
+Cada categoría muestra dos columnas:
+
+- Previsto.
+- Real.
+
+### Eliminación de pensiones escolares
+
+Cada alumno tiene ahora un botón visible de eliminación:
+
+- En el encabezado de la matriz.
+- En la tarjeta inferior del alumno.
+
+Al eliminar una pensión se eliminan también sus cuotas relacionadas, previa confirmación. Los meses cerrados continúan protegidos.
