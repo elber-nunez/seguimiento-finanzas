@@ -4,7 +4,7 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
   <meta name="theme-color" content="#0f172a">
-  <title>Finanzas - V18</title>
+  <title>Finanzas - V19</title>
   <link rel="stylesheet" href="css/styles.css">
   <link rel="stylesheet" href="css/layout.css">
   <link rel="stylesheet" href="css/dashboard.css">
@@ -27,7 +27,7 @@
     <aside class="sidebar">
       <div class="sidebar-brand">
         <strong>Finanzas</strong>
-        <span>Elber y Mayra · V18</span>
+        <span>Elber y Mayra · V19</span>
       </div>
 
       <nav class="main-menu">
@@ -192,7 +192,10 @@
               <h1>Préstamos</h1>
               <p>Registra el dinero recibido y genera automáticamente las cuotas mensuales.</p>
             </div>
-            <button id="addLoanBtn" class="primary-btn">+ Agregar préstamo</button>
+            <div class="loan-heading-actions">
+              <button id="addLoanBtn" class="primary-btn">+ Agregar préstamo</button>
+              <button id="addActiveLoanBtn" class="secondary-btn">Registrar préstamo ya activo</button>
+            </div>
           </div>
 
           <div class="loan-kpi-grid">
@@ -520,6 +523,7 @@
       <h2 id="loanModalTitle">Agregar préstamo</h2>
       <form id="loanForm">
         <input id="loanId" type="hidden">
+        <input id="loanRegistrationMode" type="hidden" value="new">
 
         <label>Responsable
           <select id="loanOwner">
@@ -538,6 +542,11 @@
             <option value="flexible">Interés mensual + abono flexible</option>
           </select>
         </label>
+
+        <div id="activeLoanNotice" class="active-loan-notice hidden">
+          <strong>Préstamo ya activo</strong>
+          <span>No se registrará como ingreso actual ni se crearán cuotas pasadas. Solo se generará el saldo pendiente desde la próxima cuota.</span>
+        </div>
 
         <div class="form-two-columns">
           <label>Monto recibido
@@ -567,9 +576,34 @@
           </label>
         </div>
 
+        <div id="activeFixedFields" class="active-loan-fields hidden">
+          <div class="form-two-columns">
+            <label>Cuotas ya pagadas
+              <input id="loanPaidInstallments" type="number" min="0" max="119" step="1" value="0">
+            </label>
+            <label>Saldo pendiente actual
+              <input id="loanOutstandingBalance" type="number" min="0.01" step="0.01">
+            </label>
+          </div>
+          <p class="field-help">La próxima cuota se calculará usando el saldo pendiente y las cuotas que faltan.</p>
+        </div>
+
+        <div id="activeFlexibleFields" class="active-loan-fields hidden">
+          <div class="form-two-columns">
+            <label>Pagos realizados anteriormente
+              <input id="loanPreviousPayments" type="number" min="0" max="120" step="1" value="0">
+            </label>
+            <label>Capital pendiente actual
+              <input id="loanOutstandingPrincipal" type="number" min="0.01" step="0.01">
+            </label>
+          </div>
+          <p class="field-help">El capital pendiente ingresado será el punto de partida real del cronograma.</p>
+        </div>
+
         <div class="loan-calculation">
           <div><span>Interés</span><strong id="loanInterestPreview">S/ 0,00</strong></div>
           <div><span>Cuota aproximada</span><strong id="loanInstallmentPreview">S/ 0,00</strong></div>
+          <div id="loanRemainingPreviewField" class="hidden"><span>Cuotas pendientes</span><strong id="loanRemainingPreview">0</strong></div>
         </div>
 
         <label id="loanPaidOffField" class="inline-check hidden">

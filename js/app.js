@@ -5,7 +5,7 @@ import { createEmptyState, normalizeState, ensureMonth, getProfileData, calculat
 import { initNavigation, showView } from "./navigation.js";
 import { renderDashboard } from "./dashboard.js";
 import { initHistoryFilters, renderHistory, renderHistoryCategoryOptions } from "./history.js";
-import { createLoan, updateLoanMetadata, payoffLoan, deleteLoan, loanMetrics, loanRecords, applyFlexiblePayment, flexiblePrincipalOutstanding, effectiveLoanTotal, flexibleRemainingMonths } from "./loans.js";
+import { createLoan, createActiveLoan, updateLoanMetadata, payoffLoan, deleteLoan, loanMetrics, loanRecords, applyFlexiblePayment, flexiblePrincipalOutstanding, effectiveLoanTotal, flexibleRemainingMonths, fixedOutstanding } from "./loans.js";
 import { SCHOOL_ROWS, createSchoolPension, updateSchoolPension, deleteSchoolPension, pensionRecords, schoolPensionsForYear, schoolMetrics } from "./school-pensions.js";
 import { renderAnalytics } from "./analytics.js";
 
@@ -894,11 +894,13 @@ function renderLoans() {
   $("loanList").innerHTML=metrics.loans.length ? metrics.loans.map(loan=>{
     const records=loanRecords(state,loan.id);
     const paid=records.installments.filter(({item})=>item.realized).reduce((sum,{item})=>sum+Number(item.actualAmount||0),0);
-    const effectiveTotal=loan.type==="fixed" ? effectiveLoanTotal(loan) : paid+flexiblePrincipalOutstanding(state,loan.id);
+    const historicalPaid=Number(loan.historicalPaidAmount||0);
+    const effectiveTotal=loan.type==="fixed" ? effectiveLoanTotal(loan) : paid+historicalPaid+flexiblePrincipalOutstanding(state,loan.id);
     const pending=loan.type==="fixed"
-      ? Math.max(0,effectiveTotal-paid)
+      ? fixedOutstanding(state,loan.id)
       : flexiblePrincipalOutstanding(state,loan.id);
-    const paidCount=records.installments.filter(({item})=>item.realized).length;
+    const paidInApp=records.installments.filter(({item})=>item.realized).length;
+    const paidCount=Number(loan.paidInstallmentsBeforeRegistration||loan.previousPaymentsBeforeRegistration||0)+paidInApp;
     const remainingMonths = loan.type==="flexible"
       ? flexibleRemainingMonths(state,loan.id)
       : Math.max(0, records.installments.filter(({item})=>!item.realized).length);
@@ -907,14 +909,14 @@ function renderLoans() {
       <div class="loan-card-heading">
         <div>
           <div class="loan-title">${escapeHtml(loan.concept)} <span class="owner-tag">${NAMES[loan.owner]}</span></div>
-          <div class="item-meta">${typeLabel} · ${loan.status==="paid"?"Cancelado en su totalidad":"Préstamo activo"} · Primera cuota ${loan.firstPaymentMonthKey}</div>
+          <div class="item-meta">${typeLabel} · ${loan.registrationMode==="active"?"Registrado como préstamo ya activo":"Préstamo nuevo"} · ${loan.status==="paid"?"Cancelado en su totalidad":"Préstamo activo"} · Próxima cuota ${loan.firstPaymentMonthKey}</div>
         </div>
         <span class="loan-status ${loan.status==="paid"?"paid":"active"}">${loan.status==="paid"?"Cancelado":"Activo"}</span>
       </div>
       <div class="loan-card-grid">
         <div><span>Recibido</span><strong>${money(loan.principal)}</strong></div>
         <div><span>${loan.type==="fixed"?"Total final":"Interés mensual"}</span><strong>${money(loan.type==="fixed"?effectiveTotal:loan.monthlyInterest)}</strong></div>
-        <div><span>Pagado</span><strong>${money(paid)}</strong></div>
+        <div><span>Pagado total</span><strong>${money(paid+historicalPaid)}</strong></div>
         <div><span>${loan.type==="fixed"?"Pendiente":"Capital pendiente"}</span><strong>${money(pending)}</strong></div>
         <div><span>Meses estimados</span><strong>${loan.installments}</strong></div>
         <div><span>Meses pendientes</span><strong>${remainingMonths}</strong></div>
@@ -941,30 +943,54 @@ function autoFillPlannedPrincipal(force=false) {
 function updateLoanPreview() {
   const principal=Number($("loanPrincipal").value||0);
   const type=$("loanType").value;
+  const active=$("loanRegistrationMode").value==="active";
   const installments=Math.max(1,Number($("loanInstallments").value||1));
+
   if(type==="fixed"){
     const total=Number($("loanTotalRepayment").value||0);
+    const paid=Math.max(0,Number($("loanPaidInstallments").value||0));
+    const remaining=Math.max(0,installments-paid);
+    const outstanding=active ? Number($("loanOutstandingBalance").value||0) : total;
     $("loanInterestPreview").textContent=money(Math.max(0,total-principal));
-    $("loanInstallmentPreview").textContent=money(total/installments);
+    $("loanInstallmentPreview").textContent=money(remaining>0 ? outstanding/remaining : 0);
+    $("loanRemainingPreview").textContent=String(remaining);
   }else{
-    autoFillPlannedPrincipal();
+    if(!active) autoFillPlannedPrincipal();
     const interest=Number($("loanMonthlyInterest").value||0);
     const capital=Number($("loanPlannedPrincipal").value||0);
-    $("loanInterestPreview").textContent=money(interest*installments);
-    $("loanInstallmentPreview").textContent=money(interest+capital);
+    const outstanding=active ? Number($("loanOutstandingPrincipal").value||0) : principal;
+    const remaining=capital>0 ? Math.ceil(outstanding/capital) : 0;
+    $("loanInterestPreview").textContent=money(interest*remaining);
+    $("loanInstallmentPreview").textContent=money(interest+Math.min(capital,outstanding));
+    $("loanRemainingPreview").textContent=String(remaining);
   }
 }
 
 function toggleLoanTypeFields() {
   const flexible=$("loanType").value==="flexible";
+  const active=$("loanRegistrationMode").value==="active";
+
   $("loanTotalRepaymentField").classList.toggle("hidden",flexible);
   $("loanMonthlyInterestField").classList.toggle("hidden",!flexible);
   $("loanPlannedPrincipalField").classList.toggle("hidden",!flexible);
-  $("loanInstallmentsLabel").textContent=flexible?"Plazo referencial en meses":"Número de cuotas";
+  $("activeFixedFields").classList.toggle("hidden",!(active && !flexible));
+  $("activeFlexibleFields").classList.toggle("hidden",!(active && flexible));
+  $("activeLoanNotice").classList.toggle("hidden",!active);
+  $("loanRemainingPreviewField").classList.toggle("hidden",!active);
+
+  $("loanInstallmentsLabel").textContent=flexible
+    ? (active ? "Plazo original o pagos estimados" : "Plazo referencial en meses")
+    : "Número total de cuotas";
+
   $("loanTotalRepayment").required=!flexible;
   $("loanMonthlyInterest").required=flexible;
   $("loanPlannedPrincipal").required=flexible;
-  if(flexible) autoFillPlannedPrincipal(true);
+  $("loanPaidInstallments").required=active && !flexible;
+  $("loanOutstandingBalance").required=active && !flexible;
+  $("loanPreviousPayments").required=active && flexible;
+  $("loanOutstandingPrincipal").required=active && flexible;
+
+  if(flexible && !active) autoFillPlannedPrincipal(true);
   updateLoanPreview();
 }
 
@@ -977,7 +1003,7 @@ function togglePayoffFields() {
   $("loanAdjustedTotal").required=checked;
 }
 
-function openLoanModal(id=null) {
+function openLoanModal(id=null,registrationMode="new") {
   if(!id && !assertMonthOpen()) return;
   if(id){
     const records=loanRecords(state,id);
@@ -986,6 +1012,7 @@ function openLoanModal(id=null) {
   }
   $("loanForm").reset();
   $("loanId").value=id||"";
+  $("loanRegistrationMode").value=id ? ((state.loans||[]).find(item=>item.id===id)?.registrationMode||"new") : registrationMode;
   $("loanOwner").value=selectedOwner();
   $("loanFirstPaymentMonth").value=currentKey();
   $("loanPayoffMonth").value=currentKey();
@@ -993,7 +1020,11 @@ function openLoanModal(id=null) {
   $("loanPlannedPrincipal").dataset.auto="true";
   $("loanPaidOffField").classList.toggle("hidden",!id);
   $("deleteLoanBtn").classList.toggle("hidden",!id);
-  $("loanModalTitle").textContent=id?"Editar préstamo":"Agregar préstamo";
+  $("loanModalTitle").textContent=id
+    ? "Editar préstamo"
+    : registrationMode==="active"
+      ? "Registrar préstamo ya activo"
+      : "Agregar préstamo";
 
   if(id){
     const loan=(state.loans||[]).find(item=>item.id===id);
@@ -1007,6 +1038,10 @@ function openLoanModal(id=null) {
     $("loanPlannedPrincipal").value=loan.plannedPrincipal||"";
     $("loanPlannedPrincipal").dataset.auto="false";
     $("loanInstallments").value=loan.installments;
+    $("loanPaidInstallments").value=loan.paidInstallmentsBeforeRegistration||0;
+    $("loanPreviousPayments").value=loan.previousPaymentsBeforeRegistration||0;
+    $("loanOutstandingBalance").value=loan.registrationMode==="active" && loan.type==="fixed" ? loan.openingOutstanding||"" : "";
+    $("loanOutstandingPrincipal").value=loan.registrationMode==="active" && loan.type==="flexible" ? loan.openingOutstanding||"" : "";
     $("loanFirstPaymentMonth").value=loan.firstPaymentMonthKey;
     $("loanPrincipal").disabled=true;
     $("loanTotalRepayment").disabled=true;
@@ -1014,11 +1049,12 @@ function openLoanModal(id=null) {
     $("loanFirstPaymentMonth").disabled=true;
     $("loanOwner").disabled=true;
     $("loanType").disabled=true;
+    ["loanPaidInstallments","loanPreviousPayments","loanOutstandingBalance","loanOutstandingPrincipal"].forEach(field=>$(field).disabled=true);
     $("loanPaidOff").checked=loan.status==="paid";
     $("loanPayoffMonth").value=loan.payoffMonthKey||currentKey();
     $("loanAdjustedTotal").value=loan.type==="fixed" ? effectiveLoanTotal(loan) : flexiblePrincipalOutstanding(state,loan.id)+Number(loan.monthlyInterest||0);
   }else{
-    ["loanPrincipal","loanTotalRepayment","loanInstallments","loanFirstPaymentMonth","loanOwner","loanType","loanMonthlyInterest","loanPlannedPrincipal"].forEach(id=>$(id).disabled=false);
+    ["loanPrincipal","loanTotalRepayment","loanInstallments","loanFirstPaymentMonth","loanOwner","loanType","loanMonthlyInterest","loanPlannedPrincipal","loanPaidInstallments","loanPreviousPayments","loanOutstandingBalance","loanOutstandingPrincipal"].forEach(id=>$(id).disabled=false);
     $("loanPlannedPrincipal").dataset.auto="true";
   }
   toggleLoanTypeFields();
@@ -1041,6 +1077,11 @@ async function saveLoan(event) {
     monthlyInterest:Number($("loanMonthlyInterest").value||0),
     plannedPrincipal:Number($("loanPlannedPrincipal").value||0),
     installments:Number($("loanInstallments").value),
+    paidInstallments:Number($("loanPaidInstallments").value||0),
+    previousPayments:Number($("loanPreviousPayments").value||0),
+    outstandingBalance:Number($("loanOutstandingBalance").value||0),
+    outstandingPrincipal:Number($("loanOutstandingPrincipal").value||0),
+    registrationMode:$("loanRegistrationMode").value,
     receivedMonthKey:currentKey(),
     firstPaymentMonthKey:$("loanFirstPaymentMonth").value
   };
@@ -1049,10 +1090,21 @@ async function saveLoan(event) {
   if(values.type==="flexible" && values.plannedPrincipal<=0){
     values.plannedPrincipal = Number((values.principal / Math.max(1, values.installments)).toFixed(2));
   }
+  if(values.registrationMode==="active" && values.type==="fixed"){
+    if(values.paidInstallments<0 || values.paidInstallments>=values.installments){
+      return alert("Las cuotas ya pagadas deben ser menores al número total de cuotas.");
+    }
+    if(values.outstandingBalance<=0) return alert("Ingresa el saldo pendiente actual.");
+  }
+  if(values.registrationMode==="active" && values.type==="flexible"){
+    if(values.outstandingPrincipal<=0) return alert("Ingresa el capital pendiente actual.");
+    if(values.outstandingPrincipal>values.principal) return alert("El capital pendiente no puede superar el capital original.");
+  }
 
   prepareUndo(id ? "Préstamo actualizado" : "Préstamo agregado");
   if(!id){
-    createLoan(state,values);
+    if(values.registrationMode==="active") createActiveLoan(state,values);
+    else createLoan(state,values);
   }else{
     updateLoanMetadata(state,id,values);
     const loan=(state.loans||[]).find(item=>item.id===id);
@@ -1095,7 +1147,8 @@ function bindUi() {
   });
   $("logoutBtn").addEventListener("click",logout);$("userButton").addEventListener("click",()=>confirm("¿Cerrar sesión?")&&logout());
   $("addIncomeBtn").addEventListener("click",()=>openRecordModal("income"));
-  $("addLoanBtn").addEventListener("click",()=>openLoanModal());
+  $("addLoanBtn").addEventListener("click",()=>openLoanModal(null,"new"));
+  $("addActiveLoanBtn").addEventListener("click",()=>openLoanModal(null,"active"));
   $("addSchoolPensionBtn").addEventListener("click",()=>openSchoolModal());
   $("addFixedBtn").addEventListener("click",()=>openRecordModal("fixed"));
   $("addVariableBtn").addEventListener("click",()=>openRecordModal("variable"));
@@ -1131,7 +1184,7 @@ function bindUi() {
   $("loanModal").addEventListener("click",event=>event.target===$("loanModal")&&closeLoanModal());
   $("loanForm").addEventListener("submit",saveLoan);
   $("deleteLoanBtn").addEventListener("click",removeLoan);
-  ["loanPrincipal","loanTotalRepayment","loanInstallments","loanMonthlyInterest"].forEach(id=>$(id).addEventListener("input",updateLoanPreview));
+  ["loanPrincipal","loanTotalRepayment","loanInstallments","loanMonthlyInterest","loanPaidInstallments","loanOutstandingBalance","loanPreviousPayments","loanOutstandingPrincipal"].forEach(id=>$(id).addEventListener("input",updateLoanPreview));
   $("loanPlannedPrincipal").addEventListener("input",()=>{
     $("loanPlannedPrincipal").dataset.auto="false";
     updateLoanPreview();

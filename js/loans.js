@@ -65,6 +65,87 @@ export function createLoan(state, values) {
   return loan;
 }
 
+export function createActiveLoan(state, values) {
+  state.loans ||= [];
+  const type=values.type || "fixed";
+  const totalInstallments=Math.max(1,Number(values.installments||1));
+  const paidInstallments=Math.max(0,Number(values.paidInstallments||0));
+  const previousPayments=Math.max(0,Number(values.previousPayments||0));
+  const openingOutstanding=type==="fixed"
+    ? Number(values.outstandingBalance||0)
+    : Number(values.outstandingPrincipal||0);
+
+  const loan={
+    id:uid(),
+    owner:values.owner,
+    concept:values.concept,
+    type,
+    registrationMode:"active",
+    principal:Number(values.principal||0),
+    totalRepayment:type==="fixed" ? Number(values.totalRepayment||0) : null,
+    adjustedTotalRepayment:null,
+    monthlyInterest:type==="flexible" ? Number(values.monthlyInterest||0) : null,
+    plannedPrincipal:type==="flexible" ? Number(values.plannedPrincipal||0) : null,
+    installments:totalInstallments,
+    paidInstallmentsBeforeRegistration:type==="fixed" ? paidInstallments : previousPayments,
+    previousPaymentsBeforeRegistration:type==="flexible" ? previousPayments : paidInstallments,
+    openingOutstanding,
+    historicalPaidAmount:type==="fixed"
+      ? Math.max(0,Number(values.totalRepayment||0)-openingOutstanding)
+      : Math.max(0,Number(values.principal||0)-openingOutstanding),
+    receivedMonthKey:null,
+    firstPaymentMonthKey:values.firstPaymentMonthKey,
+    status:"active",
+    payoffMonthKey:null,
+    createdAt:today()
+  };
+
+  state.loans.push(loan);
+  generateActiveLoanRecords(state,loan);
+  return loan;
+}
+
+export function generateActiveLoanRecords(state,loan) {
+  if(loan.type==="fixed"){
+    const alreadyPaid=Math.min(loan.installments,Number(loan.paidInstallmentsBeforeRegistration||0));
+    const remaining=Math.max(0,loan.installments-alreadyPaid);
+    if(remaining===0 || Number(loan.openingOutstanding||0)<=0){
+      loan.status="paid";
+      return;
+    }
+    installmentAmounts(loan.openingOutstanding,remaining).forEach((amount,index)=>{
+      const monthKey=addMonths(loan.firstPaymentMonthKey,index);
+      const installmentNumber=alreadyPaid+index+1;
+      const row=fixedInstallmentRecord(loan,amount,installmentNumber-1,monthKey);
+      row.installmentNumber=installmentNumber;
+      row.totalInstallments=loan.installments;
+      row.concept=`${loan.concept} · Cuota ${installmentNumber} de ${loan.installments}`;
+      row.registeredActiveLoan=true;
+      ensureMonth(state,monthKey)[loan.owner].fixed.push(row);
+    });
+    return;
+  }
+
+  const paidBefore=Number(loan.previousPaymentsBeforeRegistration||0);
+  const plannedPrincipal=Math.max(0.01,Number(loan.plannedPrincipal||0.01));
+  let outstanding=Number(loan.openingOutstanding||0);
+  const remaining=Math.ceil(outstanding/plannedPrincipal);
+  loan.installments=paidBefore+remaining;
+
+  for(let index=0;index<remaining && outstanding>0;index++){
+    const monthKey=addMonths(loan.firstPaymentMonthKey,index);
+    const installmentNumber=paidBefore+index+1;
+    const row=flexibleInstallmentRecord(loan,installmentNumber-1,monthKey,outstanding);
+    row.installmentNumber=installmentNumber;
+    row.totalInstallments=loan.installments;
+    row.concept=`${loan.concept} · Pago ${installmentNumber}`;
+    row.registeredActiveLoan=true;
+    ensureMonth(state,monthKey)[loan.owner].fixed.push(row);
+    outstanding=Math.max(0,outstanding-row.plannedPrincipal);
+  }
+}
+
+
 function createIncome(state,loan) {
   const receivedMonth = ensureMonth(state,loan.receivedMonthKey);
   receivedMonth[loan.owner].incomes.push({
@@ -150,7 +231,19 @@ export function flexibleCapitalPaid(state,loanId) {
 
 export function flexiblePrincipalOutstanding(state,loanId) {
   const loan=(state.loans || []).find(item=>item.id===loanId);
-  return Math.max(0,Number(loan?.principal||0)-flexibleCapitalPaid(state,loanId));
+  const base=loan?.registrationMode==="active"
+    ? Number(loan.openingOutstanding||0)
+    : Number(loan?.principal||0);
+  return Math.max(0,base-flexibleCapitalPaid(state,loanId));
+}
+
+export function fixedOutstanding(state,loanId) {
+  const loan=(state.loans || []).find(item=>item.id===loanId);
+  if(!loan) return 0;
+  const base=loan.registrationMode==="active"
+    ? Number(loan.openingOutstanding||0)
+    : effectiveLoanTotal(loan);
+  return Math.max(0,base-paidLoanAmount(state,loanId));
 }
 
 export function flexibleRemainingMonths(state,loanId) {
@@ -317,7 +410,7 @@ export function loanMetrics(state,profile,currentMonthKey) {
   const principal=loans.reduce((sum,loan)=>sum+Number(loan.principal||0),0);
   const pending=loans.reduce((sum,loan)=>{
     if(loan.type==="flexible") return sum+flexiblePrincipalOutstanding(state,loan.id);
-    return sum+Math.max(0,effectiveLoanTotal(loan)-paidLoanAmount(state,loan.id));
+    return sum+fixedOutstanding(state,loan.id);
   },0);
   const selectedKeys = new Set(Array.isArray(currentMonthKey) ? currentMonthKey : [currentMonthKey]);
   const monthRows=rows.filter(({monthKey})=>selectedKeys.has(monthKey));

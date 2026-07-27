@@ -207,3 +207,13 @@ h1,h2,p{margin-top:0}
   .advanced-kpi-grid{grid-template-columns:1fr 1fr}
   .undo-toast{left:12px;right:12px;bottom:12px;min-width:0}
 }
+
+.loan-heading-actions{display:flex;align-items:center;gap:9px;flex-wrap:wrap}
+.active-loan-notice{display:flex;flex-direction:column;gap:4px;margin-bottom:13px;padding:12px;border:1px solid #bae6fd;border-radius:12px;background:#f0f9ff}
+.active-loan-notice strong{color:#075985}.active-loan-notice span{font-size:.73rem;color:#315b7d;line-height:1.45}
+.active-loan-fields{margin-bottom:12px;padding:12px;border:1px dashed #cbd5e1;border-radius:13px;background:#f8fafc}
+.loan-calculation{grid-template-columns:repeat(3,1fr)}
+@media(max-width:560px){
+  .loan-heading-actions{width:100%}.loan-heading-actions button{flex:1}
+  .loan-calculation{grid-template-columns:1fr}
+}

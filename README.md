@@ -1,4 +1,4 @@
-# Finanzas Elber y Mayra — V18
+# Finanzas Elber y Mayra — V19
 
 Aplicación web familiar para registrar, planificar y analizar ingresos, gastos, préstamos, pensiones escolares y saldos mensuales.
 
@@ -371,8 +371,61 @@ Antes de usar la V18 como versión definitiva, conviene validar:
 
 ## Versión
 
-Versión actual: **V18**
+Versión actual: **V19**
 
 Nombre sugerido de commit:
 
 `Actualizar V18 con cierre mensual, deshacer y analítica ampliada`
+
+
+## Versión 19 — registro de préstamos ya activos
+
+La sección Préstamos incorpora el botón:
+
+`Registrar préstamo ya activo`
+
+Esta modalidad sirve para préstamos recibidos antes de comenzar a usar la aplicación.
+
+### Diferencias frente a un préstamo nuevo
+
+Un préstamo ya activo:
+
+- No se registra como ingreso del mes actual.
+- No genera cuotas históricas.
+- Solo genera las cuotas pendientes desde la próxima fecha de pago.
+- Conserva el monto original como información.
+- Incluye lo pagado anteriormente en los indicadores informativos.
+- Solo los pagos realizados desde la aplicación afectan los dashboards actuales.
+
+### Préstamo activo de cuotas fijas
+
+Solicita:
+
+- Responsable.
+- Concepto.
+- Monto recibido originalmente.
+- Total original a devolver.
+- Número total de cuotas.
+- Cuotas ya pagadas.
+- Saldo pendiente actual.
+- Mes de la próxima cuota.
+
+Ejemplo:
+
+- Total de cuotas: 12.
+- Cuotas ya pagadas: 8.
+- Próxima cuota generada: 9 de 12.
+- Saldo pendiente: S/ 4.400.
+
+### Préstamo personal activo
+
+Solicita:
+
+- Capital original.
+- Capital pendiente actual.
+- Interés mensual.
+- Capital previsto por mes.
+- Pagos realizados anteriormente.
+- Próximo mes de pago.
+
+El cronograma comienza usando el capital pendiente actual y no el capital original.
