@@ -630,7 +630,15 @@ async function saveRecord(event) {
   }
 
   const realized=actualAmount>0 || $("recordRealized").checked;
+  const existingLocation=findRecordLocation(kind,id);
+  const preservedMetadata=existingLocation?.item
+    ? Object.fromEntries(Object.entries(existingLocation.item).filter(([key])=>![
+        "id","owner","concept","category","plannedAmount","actualAmount","realized","date","periodKey","locked"
+      ].includes(key)))
+    : {};
+
   const item={
+    ...preservedMetadata,
     id,owner,
     concept:$("recordConcept").value.trim(),
     category:$("recordCategory").value,
@@ -684,6 +692,27 @@ async function copyPreviousIncomes() {
   alert(`Ingresos copiados: ${copied}. Duplicados omitidos: ${skipped}.`);
 }
 
+function isGeneratedFixedExpense(item) {
+  const source=String(item.sourceType||"").toLowerCase();
+  const category=String(item.category||"").trim().toLowerCase();
+  const concept=String(item.concept||"").trim();
+
+  return Boolean(
+    item.loanId ||
+    item.schoolPensionId ||
+    item.registeredActiveLoan ||
+    source==="loan-installment" ||
+    source==="school-pension" ||
+    source.startsWith("loan-") ||
+    source.startsWith("school-") ||
+    category==="préstamo" ||
+    category==="prestamo" ||
+    category==="pensión escolar" ||
+    category==="pension escolar" ||
+    /(?:cuota|pago)\s+\d+\s+de\s+\d+/i.test(concept)
+  );
+}
+
 async function copyPreviousFixed() {
   if(!assertMonthOpen()) return;
   prepareUndo("Gastos fijos copiados");
@@ -694,7 +723,7 @@ async function copyPreviousFixed() {
 
   ["elber","mayra"].forEach(person=>{
     const existing = new Set(target[person].fixed.map(duplicateKey));
-    state.months[source][person].fixed.filter(item=>item.sourceType!=="loan-installment" && item.sourceType!=="school-pension").forEach(item=>{
+    state.months[source][person].fixed.filter(item=>!isGeneratedFixedExpense(item)).forEach(item=>{
       const candidate={...item,id:uid(),owner:person,realized:false,actualAmount:0,date:today()};
       const key=duplicateKey(candidate);
       if(existing.has(key)){ skipped++; return; }
@@ -706,7 +735,7 @@ async function copyPreviousFixed() {
 
   renderAll();
   if(copied) await persist();
-  alert(`Gastos fijos copiados: ${copied}. Duplicados omitidos: ${skipped}.`);
+  alert(`Gastos fijos manuales copiados: ${copied}. Registros duplicados omitidos: ${skipped}. Los préstamos y pensiones automáticos no se copiaron.`);
 }
 
 function normalizeCategoryName(value) {
