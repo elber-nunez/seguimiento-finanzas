@@ -92,16 +92,21 @@ export function ensureMonth(state, key) {
   return state.months[key];
 }
 
-export function getProfileData(state, key, profile) {
-  const month = ensureMonth(state,key);
-  if (profile === "general") {
-    return {
-      incomes:[...month.elber.incomes,...month.mayra.incomes],
-      fixed:[...month.elber.fixed,...month.mayra.fixed],
-      variable:[...month.elber.variable,...month.mayra.variable]
-    };
-  }
-  return month[profile];
+export function getProfileData(state, keyOrKeys, profile) {
+  const keys = Array.isArray(keyOrKeys) ? keyOrKeys : [keyOrKeys];
+  const result = { incomes:[], fixed:[], variable:[] };
+
+  keys.filter(Boolean).forEach(key => {
+    const month = ensureMonth(state,key);
+    const owners = profile === "general" ? ["elber","mayra"] : [profile];
+    owners.forEach(owner => {
+      result.incomes.push(...month[owner].incomes.map(item=>({...item,periodKey:key})));
+      result.fixed.push(...month[owner].fixed.map(item=>({...item,periodKey:key})));
+      result.variable.push(...month[owner].variable.map(item=>({...item,periodKey:key})));
+    });
+  });
+
+  return result;
 }
 
 const sum = (rows,field) => rows.reduce((total,item)=>total+Number(item[field]||0),0);

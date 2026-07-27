@@ -189,3 +189,27 @@ Los dos usuarios autorizados pueden visualizar y actualizar los datos.
   - El monto previsto es opcional.
   - El monto real puede registrarse directamente.
 - Si el monto real es mayor que cero, el registro se considera recibido o pagado.
+
+
+## Versión 15 — periodo anual y analítica financiera
+
+- Título visible: `Finanzas - V15`.
+- Resumen, Dashboard y Analítica incorporan el filtro:
+  - Mes seleccionado.
+  - Todos.
+- Regla especial para 2026:
+  - El periodo anual incluye únicamente agosto a diciembre.
+  - Enero a julio quedan fuera de dashboards, resúmenes y analítica anual.
+  - Los registros históricos de escolaridad de esos meses no afectan la analítica.
+- Desde 2027, la opción Todos considera enero a diciembre.
+- Nueva sección de Analítica financiera con:
+  - Puntaje de salud financiera.
+  - Tasa de ahorro real.
+  - Relación gastos/ingresos.
+  - Cumplimiento de ingresos.
+  - Desviación presupuestaria.
+  - Carga de gastos fijos.
+  - Carga de deuda.
+  - Evolución mensual.
+  - Diagnóstico simple.
+  - Comparación Elber, Mayra y General.

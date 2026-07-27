@@ -4,7 +4,7 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
   <meta name="theme-color" content="#0f172a">
-  <title>Finanzas - V14</title>
+  <title>Finanzas - V15</title>
   <link rel="stylesheet" href="css/styles.css">
   <link rel="stylesheet" href="css/layout.css">
   <link rel="stylesheet" href="css/dashboard.css">
@@ -27,7 +27,7 @@
     <aside class="sidebar">
       <div class="sidebar-brand">
         <strong>Finanzas</strong>
-        <span>Elber y Mayra · V14</span>
+        <span>Elber y Mayra · V15</span>
       </div>
 
       <nav class="main-menu">
@@ -46,6 +46,7 @@
         <button class="menu-item" data-view="loansView"><span>▣</span>Préstamos</button>
         <button class="menu-item" data-view="schoolView"><span>▤</span>Pensiones escolares</button>
         <button class="menu-item" data-view="dashboardView"><span>▦</span>Dashboard</button>
+        <button class="menu-item" data-view="analyticsView"><span>◒</span>Analítica</button>
         <button class="menu-item" data-view="historyView"><span>◷</span>Historial</button>
         <button class="menu-item" data-view="settingsView"><span>⚙</span>Configuración</button>
       </nav>
@@ -154,7 +155,17 @@
         </section>
 
         <section id="summaryView" class="view">
-          <div class="page-heading"><div><h1>Resumen mensual</h1><p>Planificación completa del mes seleccionado.</p></div></div>
+          <div class="page-heading">
+            <div><h1>Resumen financiero</h1><p>Planificación del mes seleccionado o del periodo anual habilitado.</p></div>
+            <div class="analysis-period-control">
+              <label for="summaryPeriodFilter">Periodo</label>
+              <select id="summaryPeriodFilter">
+                <option value="month">Mes seleccionado</option>
+                <option value="all">Todos</option>
+              </select>
+            </div>
+          </div>
+          <p id="summaryPeriodNote" class="period-note"></p>
           <div class="summary-grid">
             <article><span>Ingresos previstos</span><strong id="summaryIncomePlanned">S/ 0,00</strong></article>
             <article><span>Ingresos reales</span><strong id="summaryIncomeActual">S/ 0,00</strong></article>
@@ -221,7 +232,17 @@
         </section>
 
         <section id="dashboardView" class="view">
-          <div class="page-heading"><div><h1>Dashboard</h1><p>Indicadores visuales de la vista y el mes seleccionados.</p></div></div>
+          <div class="page-heading">
+            <div><h1>Dashboard</h1><p>Indicadores visuales del mes o del periodo anual habilitado.</p></div>
+            <div class="analysis-period-control">
+              <label for="dashboardPeriodFilter">Periodo</label>
+              <select id="dashboardPeriodFilter">
+                <option value="month">Mes seleccionado</option>
+                <option value="all">Todos</option>
+              </select>
+            </div>
+          </div>
+          <p id="dashboardPeriodNote" class="period-note"></p>
           <div class="dashboard-grid">
             <article class="panel">
               <h2>Ingresos y gastos</h2>
@@ -257,6 +278,98 @@
               <table>
                 <thead><tr><th>Persona</th><th>Ing. previsto</th><th>Ing. real</th><th>Gasto previsto</th><th>Gasto real</th><th>Saldo previsto</th><th>Saldo real</th></tr></thead>
                 <tbody id="comparisonTable"></tbody>
+              </table>
+            </div>
+          </article>
+        </section>
+
+        <section id="analyticsView" class="view">
+          <div class="page-heading">
+            <div>
+              <h1>Analítica financiera</h1>
+              <p>Indicadores estándar de salud financiera para Elber, Mayra y el consolidado general.</p>
+            </div>
+            <div class="analysis-period-control">
+              <label for="analyticsPeriodFilter">Periodo</label>
+              <select id="analyticsPeriodFilter">
+                <option value="month">Mes seleccionado</option>
+                <option value="all">Todos</option>
+              </select>
+            </div>
+          </div>
+
+          <p id="analyticsPeriodNote" class="period-note"></p>
+
+          <div class="health-hero">
+            <div>
+              <span>Puntaje de salud financiera</span>
+              <strong id="healthScore">0 / 100</strong>
+              <small id="healthStatus">Sin información suficiente</small>
+            </div>
+            <div id="healthGauge" class="health-gauge"><i></i></div>
+          </div>
+
+          <div class="analytics-kpi-grid">
+            <article class="analytics-kpi">
+              <span>Tasa de ahorro real</span>
+              <strong id="analyticsSavingsRate">0%</strong>
+              <small>Saldo real sobre ingresos reales</small>
+            </article>
+            <article class="analytics-kpi">
+              <span>Relación gastos / ingresos</span>
+              <strong id="analyticsExpenseRatio">0%</strong>
+              <small>Gastos reales sobre ingresos reales</small>
+            </article>
+            <article class="analytics-kpi">
+              <span>Cumplimiento de ingresos</span>
+              <strong id="analyticsIncomeRealization">0%</strong>
+              <small>Ingresos reales frente a previstos</small>
+            </article>
+            <article class="analytics-kpi">
+              <span>Desviación del presupuesto</span>
+              <strong id="analyticsBudgetVariance">0%</strong>
+              <small>Gasto real frente al previsto</small>
+            </article>
+            <article class="analytics-kpi">
+              <span>Carga de gastos fijos</span>
+              <strong id="analyticsFixedRatio">0%</strong>
+              <small>Gastos fijos reales sobre ingresos reales</small>
+            </article>
+            <article class="analytics-kpi">
+              <span>Carga de deuda</span>
+              <strong id="analyticsDebtRatio">0%</strong>
+              <small>Pagos reales de préstamos sobre ingresos</small>
+            </article>
+          </div>
+
+          <div class="analytics-layout">
+            <article class="panel">
+              <h2>Evolución mensual</h2>
+              <div id="analyticsMonthlyTrend" class="monthly-trend"></div>
+            </article>
+
+            <article class="panel">
+              <h2>Diagnóstico</h2>
+              <div id="analyticsDiagnosis" class="diagnosis-list"></div>
+            </article>
+          </div>
+
+          <article id="analyticsComparisonPanel" class="panel dashboard-panel hidden">
+            <h2>Comparación de salud financiera</h2>
+            <div class="table-scroll">
+              <table>
+                <thead>
+                  <tr>
+                    <th>Vista</th>
+                    <th>Ingresos reales</th>
+                    <th>Gastos reales</th>
+                    <th>Ahorro real</th>
+                    <th>Tasa ahorro</th>
+                    <th>Carga deuda</th>
+                    <th>Puntaje</th>
+                  </tr>
+                </thead>
+                <tbody id="analyticsComparisonTable"></tbody>
               </table>
             </div>
           </article>

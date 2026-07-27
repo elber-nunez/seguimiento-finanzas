@@ -7,6 +7,7 @@ import { renderDashboard } from "./dashboard.js";
 import { initHistoryFilters, renderHistory, renderHistoryCategoryOptions } from "./history.js";
 import { createLoan, updateLoanMetadata, payoffLoan, deleteLoan, loanMetrics, loanRecords, applyFlexiblePayment, flexiblePrincipalOutstanding, effectiveLoanTotal, flexibleRemainingMonths } from "./loans.js";
 import { SCHOOL_ROWS, createSchoolPension, updateSchoolPension, deleteSchoolPension, pensionRecords, schoolPensionsForYear, schoolMetrics } from "./school-pensions.js";
+import { renderAnalytics } from "./analytics.js";
 
 let currentUser = null;
 let currentUserProfile = null;
@@ -18,6 +19,45 @@ let saveQueued = false;
 
 function currentKey() {
   return `${$("yearPicker").value}-${String(Number($("monthPicker").value)+1).padStart(2,"0")}`;
+}
+
+function annualStartMonth(year) {
+  return Number(year) === 2026 ? 8 : 1;
+}
+
+function annualKeys(year) {
+  const start=annualStartMonth(year);
+  return Array.from({length:13-start},(_,index)=>
+    `${year}-${String(start+index).padStart(2,"0")}`
+  );
+}
+
+function periodKeys(mode) {
+  return mode==="all" ? annualKeys(Number($("yearPicker").value)) : [currentKey()];
+}
+
+function periodRows(mode) {
+  const year=Number($("yearPicker").value);
+  const keys=periodKeys(mode);
+  return keys.map(key=>({
+    key,
+    label:MONTHS[Number(key.slice(5,7))-1].slice(0,3)
+  }));
+}
+
+function periodNote(mode) {
+  const year=Number($("yearPicker").value);
+  if(mode!=="all") return `${MONTHS[Number($("monthPicker").value)]} ${year}`;
+  return year===2026
+    ? "Todos: agosto a diciembre de 2026. Enero a julio se excluyen de la analítica."
+    : `Todos: enero a diciembre de ${year}.`;
+}
+
+function syncAnalysisFilters(source) {
+  ["summaryPeriodFilter","dashboardPeriodFilter","analyticsPeriodFilter"].forEach(id=>{
+    if($(id)!==source) $(id).value=source.value;
+  });
+  renderAll();
 }
 
 function initPeriodPickers() {
@@ -76,7 +116,20 @@ function renderAll() {
   renderFixed();
   renderVariable();
   renderSummary();
-  renderDashboard(state,currentKey(),selectedProfile);
+  const dashboardMode=$("dashboardPeriodFilter").value;
+  const dashboardKeys=periodKeys(dashboardMode);
+  $("dashboardPeriodNote").textContent=periodNote(dashboardMode);
+  renderDashboard(state,dashboardKeys,selectedProfile);
+
+  const analyticsMode=$("analyticsPeriodFilter").value;
+  renderAnalytics(
+    state,
+    periodKeys(analyticsMode),
+    selectedProfile,
+    periodRows(analyticsMode),
+    periodNote(analyticsMode)
+  );
+
   renderLoans();
   renderSchoolPensions();
   renderCategoryEditors();
@@ -173,7 +226,9 @@ function renderVariable() {
 }
 
 function renderSummary() {
-  const totals = calculateTotals(state,currentKey(),selectedProfile);
+  const mode=$("summaryPeriodFilter").value;
+  const totals = calculateTotals(state,periodKeys(mode),selectedProfile);
+  $("summaryPeriodNote").textContent=periodNote(mode);
   $("summaryIncomePlanned").textContent=money(totals.incomePlanned);
   $("summaryIncomeActual").textContent=money(totals.incomeActual);
   $("summaryExpensePlanned").textContent=money(totals.expensePlanned);
@@ -784,6 +839,9 @@ function bindUi() {
   initHistoryFilters(renderAll);
   $("profileSelect").addEventListener("change",renderAll);
   $("fixedCategoryFilter").addEventListener("change",renderFixed);
+  ["summaryPeriodFilter","dashboardPeriodFilter","analyticsPeriodFilter"].forEach(id=>{
+    $(id).addEventListener("change",event=>syncAnalysisFilters(event.target));
+  });
   $("googleLoginBtn").addEventListener("click",async()=>{
     $("loginMessage").textContent="";
     try{await loginWithGoogle();}catch(error){$("loginMessage").textContent=error.message;}

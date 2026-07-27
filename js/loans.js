@@ -319,7 +319,8 @@ export function loanMetrics(state,profile,currentMonthKey) {
     if(loan.type==="flexible") return sum+flexiblePrincipalOutstanding(state,loan.id);
     return sum+Math.max(0,effectiveLoanTotal(loan)-paidLoanAmount(state,loan.id));
   },0);
-  const monthRows=rows.filter(({monthKey})=>monthKey===currentMonthKey);
+  const selectedKeys = new Set(Array.isArray(currentMonthKey) ? currentMonthKey : [currentMonthKey]);
+  const monthRows=rows.filter(({monthKey})=>selectedKeys.has(monthKey));
 
   return {
     loans,
