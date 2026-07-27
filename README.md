@@ -174,3 +174,18 @@ Los dos usuarios autorizados pueden visualizar y actualizar los datos.
   - `Guardando…`
   - `Cambios pendientes…`
   - `Sincronizado`
+
+
+## Versión 14 — monto previsto y real al registrar
+
+- Título visible: `Finanzas - V14`.
+- El formulario muestra siempre:
+  - Monto previsto.
+  - Monto real.
+- Si el monto real se deja vacío o en cero, se guarda como `0`.
+- Para gastos fijos y variables:
+  - El monto previsto es obligatorio.
+- Para ingresos:
+  - El monto previsto es opcional.
+  - El monto real puede registrarse directamente.
+- Si el monto real es mayor que cero, el registro se considera recibido o pagado.

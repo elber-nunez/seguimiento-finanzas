@@ -4,7 +4,7 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
   <meta name="theme-color" content="#0f172a">
-  <title>Finanzas - V13</title>
+  <title>Finanzas - V14</title>
   <link rel="stylesheet" href="css/styles.css">
   <link rel="stylesheet" href="css/layout.css">
   <link rel="stylesheet" href="css/dashboard.css">
@@ -27,7 +27,7 @@
     <aside class="sidebar">
       <div class="sidebar-brand">
         <strong>Finanzas</strong>
-        <span>Elber y Mayra · V13</span>
+        <span>Elber y Mayra · V14</span>
       </div>
 
       <nav class="main-menu">
@@ -473,12 +473,12 @@
           <select id="recordCategory"></select>
         </label>
 
-        <label>Monto previsto
-          <input id="recordPlannedAmount" type="number" min="0" step="0.01" required>
+        <label><span id="plannedAmountLabel">Monto previsto</span>
+          <input id="recordPlannedAmount" type="number" min="0" step="0.01">
         </label>
 
-        <label id="actualAmountField" class="hidden">Monto real
-          <input id="recordActualAmount" type="number" min="0" step="0.01">
+        <label id="actualAmountField">Monto real
+          <input id="recordActualAmount" type="number" min="0" step="0.01" value="0">
         </label>
 
         <label id="dateField">Fecha
@@ -489,6 +489,7 @@
           <input id="recordRealized" type="checkbox">
           Marcar como recibido o pagado
         </label>
+        <p id="recordAmountHelp" class="field-help">El monto real puede quedar en 0 si todavía no se ha recibido o pagado.</p>
 
         <button class="primary-btn full-btn" type="submit">Guardar</button>
         <button id="deleteRecordBtn" class="danger-btn full-btn hidden" type="button">Eliminar</button>

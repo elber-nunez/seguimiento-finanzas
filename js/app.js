@@ -251,8 +251,15 @@ function openRecordModal(kind,id=null,owner=null) {
   $("recordCategory").innerHTML=categories.map(category=>`<option>${escapeHtml(category)}</option>`).join("");
   $("categoryField").classList.remove("hidden");
   $("paidField").classList.remove("hidden");
-  $("actualAmountField").classList.add("hidden");
+  $("actualAmountField").classList.remove("hidden");
   $("recordActualAmount").required=false;
+  $("recordActualAmount").value="0";
+  $("recordActualAmount").dataset.edited="false";
+  $("plannedAmountLabel").textContent=kind==="income" ? "Monto previsto (opcional)" : "Monto previsto";
+  $("recordPlannedAmount").required=kind!=="income";
+  $("recordAmountHelp").textContent=kind==="income"
+    ? "En ingresos, el monto previsto es opcional. El monto real puede quedar en 0 si todavía no se recibió."
+    : "En gastos, el monto previsto es obligatorio. El monto real puede quedar en 0 si todavía no se pagó.";
 
   $("modalTitle").textContent = id ? "Editar registro" : kind==="income" ? "Agregar ingreso" : kind==="fixed" ? "Agregar gasto fijo" : "Agregar gasto variable";
   $("deleteRecordBtn").classList.toggle("hidden",!id);
@@ -263,7 +270,7 @@ function openRecordModal(kind,id=null,owner=null) {
     if(item){
       $("recordConcept").value=item.concept;
       $("recordPlannedAmount").value=item.plannedAmount;
-      $("recordActualAmount").value=item.actualAmount || "";
+      $("recordActualAmount").value=Number(item.actualAmount || 0);
       $("recordDate").value=item.date;
       $("recordCategory").value=item.category || (kind==="income" ? state.settings.categories.income[0] : state.settings.categories.expense[0]);
       $("recordRealized").checked=item.realized;
@@ -274,12 +281,8 @@ function openRecordModal(kind,id=null,owner=null) {
 }
 
 function toggleActualAmountField() {
-  const realized=$("recordRealized").checked;
-  $("actualAmountField").classList.toggle("hidden",!realized);
-  $("recordActualAmount").required=realized;
-  if(realized && !$("recordActualAmount").value){
-    $("recordActualAmount").value=$("recordPlannedAmount").value;
-  }
+  const actual=Number($("recordActualAmount").value||0);
+  $("recordRealized").checked=actual>0;
 }
 
 function closeModal(){ $("formModal").classList.remove("open"); }
@@ -290,13 +293,32 @@ async function saveRecord(event) {
   const month=ensureMonth(state,currentKey());
   const property=kind==="income"?"incomes":kind;
   ["elber","mayra"].forEach(person=>month[person][property]=month[person][property].filter(item=>item.id!==id));
-  const realized=$("recordRealized").checked;
+  const plannedRaw=$("recordPlannedAmount").value.trim();
+  const actualAmount=Number($("recordActualAmount").value||0);
+
+  if(kind!=="income" && plannedRaw===""){
+    alert("El monto previsto es obligatorio para los gastos.");
+    $("recordPlannedAmount").focus();
+    return;
+  }
+
+  const plannedAmount=plannedRaw==="" ? 0 : Number(plannedRaw);
+  if(!Number.isFinite(plannedAmount) || plannedAmount<0){
+    alert("Ingresa un monto previsto válido.");
+    return;
+  }
+  if(!Number.isFinite(actualAmount) || actualAmount<0){
+    alert("Ingresa un monto real válido.");
+    return;
+  }
+
+  const realized=actualAmount>0 || $("recordRealized").checked;
   const item={
     id,owner,
     concept:$("recordConcept").value.trim(),
     category:$("recordCategory").value,
-    plannedAmount:Number($("recordPlannedAmount").value),
-    actualAmount:realized ? Number($("recordActualAmount").value) : 0,
+    plannedAmount,
+    actualAmount,
     realized,
     date:$("recordDate").value
   };
@@ -777,13 +799,18 @@ function bindUi() {
   $("formModal").addEventListener("click",event=>event.target===$("formModal")&&closeModal());
   $("recordForm").addEventListener("submit",saveRecord);
   $("deleteRecordBtn").addEventListener("click",deleteRecord);
-  $("recordRealized").addEventListener("change",toggleActualAmountField);
-  $("recordPlannedAmount").addEventListener("input",()=>{
-    if($("recordRealized").checked && !$("recordActualAmount").dataset.edited){
-      $("recordActualAmount").value=$("recordPlannedAmount").value;
+  $("recordRealized").addEventListener("change",()=>{
+    if($("recordRealized").checked && Number($("recordActualAmount").value||0)===0){
+      $("recordActualAmount").value=$("recordPlannedAmount").value || "0";
+    }
+    if(!$("recordRealized").checked){
+      $("recordActualAmount").value="0";
     }
   });
-  $("recordActualAmount").addEventListener("input",()=>{$("recordActualAmount").dataset.edited="true";});
+  $("recordActualAmount").addEventListener("input",()=>{
+    $("recordActualAmount").dataset.edited="true";
+    toggleActualAmountField();
+  });
   $("copyIncomeBtn").addEventListener("click",copyPreviousIncomes);
   $("copyFixedBtn").addEventListener("click",copyPreviousFixed);
   $("addIncomeCategoryBtn").addEventListener("click",()=>addCategory("income","newIncomeCategory"));
