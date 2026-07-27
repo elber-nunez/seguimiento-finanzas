@@ -1,4 +1,4 @@
-# Finanzas Elber y Mayra — V22
+# Finanzas Elber y Mayra — V23
 
 Aplicación web familiar para registrar, planificar y analizar ingresos, gastos, préstamos, pensiones escolares y saldos mensuales.
 
@@ -371,7 +371,7 @@ Antes de usar la V18 como versión definitiva, conviene validar:
 
 ## Versión
 
-Versión actual: **V22**
+Versión actual: **V23**
 
 Nombre sugerido de commit:
 
@@ -491,3 +491,47 @@ También se corrigió la edición de registros automáticos. Al editar una cuota
 La copia mensual queda limitada a gastos manuales como servicios, alimentación, transporte, streaming y otros gastos fijos normales.
 
 Los registros incorrectos que ya fueron copiados en versiones anteriores deben eliminarse una sola vez manualmente.
+
+
+## Versión 23 — acciones de configuración por usuario
+
+Las acciones de Configuración ahora dependen del usuario seleccionado en la barra superior.
+
+### Vista General
+
+Cuando la vista está en `General`, estas acciones no se ejecutan:
+
+- Copiar ingresos del mes anterior.
+- Copiar gastos fijos del mes anterior.
+- Restablecer el mes.
+
+La aplicación muestra una alerta solicitando seleccionar `Elber` o `Mayra`.
+
+### Vista Elber o Mayra
+
+Las acciones afectan únicamente al usuario seleccionado.
+
+Ejemplo:
+
+- Si la vista está en Elber, solo se copian o eliminan registros de Elber.
+- Los registros de Mayra no se modifican.
+- Si la vista está en Mayra, solo se trabaja con Mayra.
+
+### Restablecer mes
+
+El restablecimiento elimina para el usuario seleccionado:
+
+- Ingresos manuales.
+- Gastos fijos manuales.
+- Gastos variables.
+
+Se conservan:
+
+- Ingresos asociados a préstamos.
+- Cuotas de préstamos.
+- Préstamos nuevos.
+- Préstamos ya activos.
+
+Esto evita romper el cronograma y la continuidad de los préstamos.
+
+Las categorías de ingresos y gastos continúan siendo generales para toda la aplicación.

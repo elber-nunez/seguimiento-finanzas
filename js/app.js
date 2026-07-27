@@ -667,29 +667,69 @@ function duplicateKey(item) {
   return `${item.owner}|${(item.concept||"").trim().toLowerCase()}|${(item.category||"").trim().toLowerCase()}`;
 }
 
+function selectedConfigurationUser() {
+  if(selectedProfile==="general"){
+    alert("Selecciona Elber o Mayra para copiar o restablecer información del mes.");
+    return null;
+  }
+  return selectedProfile;
+}
+
+function isLoanRelatedRecord(item) {
+  const source=String(item.sourceType||"").toLowerCase();
+  const category=String(item.category||"").trim().toLowerCase();
+  const concept=String(item.concept||"").trim();
+
+  return Boolean(
+    item.loanId ||
+    item.registeredActiveLoan ||
+    source==="loan-income" ||
+    source==="loan-installment" ||
+    source.startsWith("loan-") ||
+    category==="préstamo" ||
+    category==="prestamo" ||
+    /(?:cuota|pago)\s+\d+\s+de\s+\d+/i.test(concept)
+  );
+}
+
 async function copyPreviousIncomes() {
+  const person=selectedConfigurationUser();
+  if(!person) return;
   if(!assertMonthOpen()) return;
-  prepareUndo("Ingresos copiados");
-  const destination=currentKey(), source=previousMonthKey(destination);
+
+  const destination=currentKey();
+  const source=previousMonthKey(destination);
   if(!state.months[source]) return alert("El mes anterior no tiene información registrada.");
+
+  prepareUndo(`Ingresos de ${NAMES[person]} copiados`);
   const target=ensureMonth(state,destination);
+  const existing=new Set(target[person].incomes.map(duplicateKey));
   let copied=0, skipped=0;
 
-  ["elber","mayra"].forEach(person=>{
-    const existing = new Set(target[person].incomes.map(duplicateKey));
-    state.months[source][person].incomes.filter(item=>item.sourceType!=="loan-income").forEach(item=>{
-      const candidate={...item,id:uid(),owner:person,date:today(),realized:false,actualAmount:0};
+  state.months[source][person].incomes
+    .filter(item=>!isLoanRelatedRecord(item))
+    .forEach(item=>{
+      const candidate={
+        ...item,
+        id:uid(),
+        owner:person,
+        date:today(),
+        realized:false,
+        actualAmount:0
+      };
       const key=duplicateKey(candidate);
-      if(existing.has(key)){ skipped++; return; }
+      if(existing.has(key)){
+        skipped++;
+        return;
+      }
       target[person].incomes.push(candidate);
       existing.add(key);
       copied++;
     });
-  });
 
   renderAll();
   if(copied) await persist();
-  alert(`Ingresos copiados: ${copied}. Duplicados omitidos: ${skipped}.`);
+  alert(`Ingresos de ${NAMES[person]} copiados: ${copied}. Duplicados omitidos: ${skipped}. Los ingresos de préstamos no se copiaron.`);
 }
 
 function isGeneratedFixedExpense(item) {
@@ -714,28 +754,43 @@ function isGeneratedFixedExpense(item) {
 }
 
 async function copyPreviousFixed() {
+  const person=selectedConfigurationUser();
+  if(!person) return;
   if(!assertMonthOpen()) return;
-  prepareUndo("Gastos fijos copiados");
-  const destination=currentKey(), source=previousMonthKey(destination);
+
+  const destination=currentKey();
+  const source=previousMonthKey(destination);
   if(!state.months[source]) return alert("El mes anterior no tiene información registrada.");
+
+  prepareUndo(`Gastos fijos de ${NAMES[person]} copiados`);
   const target=ensureMonth(state,destination);
+  const existing=new Set(target[person].fixed.map(duplicateKey));
   let copied=0, skipped=0;
 
-  ["elber","mayra"].forEach(person=>{
-    const existing = new Set(target[person].fixed.map(duplicateKey));
-    state.months[source][person].fixed.filter(item=>!isGeneratedFixedExpense(item)).forEach(item=>{
-      const candidate={...item,id:uid(),owner:person,realized:false,actualAmount:0,date:today()};
+  state.months[source][person].fixed
+    .filter(item=>!isGeneratedFixedExpense(item))
+    .forEach(item=>{
+      const candidate={
+        ...item,
+        id:uid(),
+        owner:person,
+        realized:false,
+        actualAmount:0,
+        date:today()
+      };
       const key=duplicateKey(candidate);
-      if(existing.has(key)){ skipped++; return; }
+      if(existing.has(key)){
+        skipped++;
+        return;
+      }
       target[person].fixed.push(candidate);
       existing.add(key);
       copied++;
     });
-  });
 
   renderAll();
   if(copied) await persist();
-  alert(`Gastos fijos manuales copiados: ${copied}. Registros duplicados omitidos: ${skipped}. Los préstamos y pensiones automáticos no se copiaron.`);
+  alert(`Gastos fijos manuales de ${NAMES[person]} copiados: ${copied}. Duplicados omitidos: ${skipped}. Los préstamos y pensiones automáticos no se copiaron.`);
 }
 
 function normalizeCategoryName(value) {
@@ -794,11 +849,33 @@ function renderCategoryEditors() {
 }
 
 async function resetMonth() {
+  const person=selectedConfigurationUser();
+  if(!person) return;
   if(!assertMonthOpen()) return;
-  if(!confirm("¿Eliminar todos los datos del mes seleccionado para Elber y Mayra?")) return;
-  prepareUndo("Mes restablecido");
-  state.months[currentKey()]={elber:{incomes:[],fixed:[],variable:[]},mayra:{incomes:[],fixed:[],variable:[]}};
-  renderAll();await persist();
+
+  const key=currentKey();
+  const month=ensureMonth(state,key);
+  const loanIncomes=month[person].incomes.filter(isLoanRelatedRecord);
+  const loanFixed=month[person].fixed.filter(isLoanRelatedRecord);
+
+  const message=[
+    `¿Restablecer ${periodNote()} únicamente para ${NAMES[person]}?`,
+    "",
+    "Se eliminarán sus ingresos, gastos fijos y gastos variables del mes.",
+    "Las cuotas e ingresos vinculados a préstamos se conservarán."
+  ].join("\n");
+
+  if(!confirm(message)) return;
+
+  prepareUndo(`Mes de ${NAMES[person]} restablecido`);
+  month[person]={
+    incomes:loanIncomes,
+    fixed:loanFixed,
+    variable:[]
+  };
+
+  renderAll();
+  await persist();
 }
 
 
