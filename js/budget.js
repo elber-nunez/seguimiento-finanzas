@@ -6,6 +6,7 @@ export function createEmptyState() {
     loans:[],
     schoolPensions:[],
     monthClosures:{},
+    carryoverControls:{},
     ui:{ selectedProfile:"general" },
     settings:{
       categories:{
@@ -50,6 +51,7 @@ export function normalizeState(state) {
   normalized.loans ||= [];
   normalized.schoolPensions ||= [];
   normalized.monthClosures ||= {};
+  normalized.carryoverControls ||= {};
   normalized.ui ||= { selectedProfile:"general" };
   normalized.settings ||= {};
   normalized.settings.categories ||= {};
@@ -123,27 +125,17 @@ function monthLabel(key) {
   return names[Number(key.slice(5,7))-1];
 }
 
-function closingBalance(state,key,profile,visited=new Set()) {
+function closingBalance(state,key,profile) {
   const closure=state.monthClosures?.[key];
   if(closure?.closed && closure.snapshot?.[profile]){
     return Number(closure.snapshot[profile].available||0);
   }
-  if(visited.has(key)) return 0;
-  visited.add(key);
 
   const data=rawProfileData(state,key,profile);
-  const hasData=data.incomes.length || data.fixed.length || data.variable.length;
-  const priorKey=previousKey(key);
-  const priorExists=Boolean(state.months?.[priorKey]);
-
-  if(!hasData && !priorExists) return 0;
-
-  const priorBalance=priorExists ? Math.max(0,closingBalance(state,priorKey,profile,visited)) : 0;
   const incomeActual=sumRealized(data.incomes);
   const fixedActual=sumRealized(data.fixed);
   const variableActual=sumRealized(data.variable);
-
-  return priorBalance + incomeActual - fixedActual - variableActual;
+  return incomeActual-fixedActual-variableActual;
 }
 
 export function carryoverAmount(state,key,profile) {
@@ -152,44 +144,99 @@ export function carryoverAmount(state,key,profile) {
   return Math.max(0,closingBalance(state,priorKey,profile));
 }
 
-function carryoverRecord(state,key,profile) {
-  const amount=carryoverAmount(state,key,profile);
-  if(amount<=0) return null;
+function carryoverControlKey(key,owner) {
+  return `${key}|${owner}`;
+}
+
+export function canGenerateCarryoverForMonth(key,now=new Date()) {
+  const [year,month]=key.split("-").map(Number);
+  const targetValue=year*100+month;
+  const currentValue=now.getFullYear()*100+(now.getMonth()+1);
+  return targetValue<=currentValue;
+}
+
+export function syncCarryoverForMonth(state,key,owner,now=new Date()) {
+  if(!canGenerateCarryoverForMonth(key,now)) return false;
+
+  state.carryoverControls ||= {};
+  const control=state.carryoverControls[carryoverControlKey(key,owner)];
+  if(control==="suppressed" || control==="manual") return false;
+
+  const month=ensureMonth(state,key);
+  const incomes=month[owner].incomes;
+  const existing=incomes.find(item=>item.sourceType==="carryover");
+  const amount=carryoverAmount(state,key,owner);
   const priorKey=previousKey(key);
-  return {
-    id:`carryover-${profile}-${key}`,
-    owner:profile==="general" ? "general" : profile,
+
+  if(amount<=0){
+    if(existing){
+      month[owner].incomes=incomes.filter(item=>item.id!==existing.id);
+      return true;
+    }
+    return false;
+  }
+
+  const nextRecord={
+    id:existing?.id || `carryover-${owner}-${key}`,
+    owner,
     concept:`Saldo restante de ${monthLabel(priorKey)}`,
     category:"Saldo anterior",
     plannedAmount:amount,
     actualAmount:amount,
     realized:true,
     date:`${key}-01`,
-    periodKey:key,
     sourceType:"carryover",
-    virtual:true
+    generatedAutomatically:true
   };
+
+  if(!existing){
+    incomes.unshift(nextRecord);
+    return true;
+  }
+
+  const changed=
+    Number(existing.plannedAmount||0)!==amount ||
+    Number(existing.actualAmount||0)!==amount ||
+    existing.concept!==nextRecord.concept ||
+    existing.category!=="Saldo anterior" ||
+    existing.realized!==true;
+
+  if(changed) Object.assign(existing,nextRecord);
+  return changed;
+}
+
+export function suppressCarryover(state,key,owner) {
+  state.carryoverControls ||= {};
+  state.carryoverControls[carryoverControlKey(key,owner)]="suppressed";
+}
+
+export function markCarryoverManual(state,key,owner) {
+  state.carryoverControls ||= {};
+  state.carryoverControls[carryoverControlKey(key,owner)]="manual";
+}
+
+export function clearCarryoverControl(state,key,owner) {
+  state.carryoverControls ||= {};
+  delete state.carryoverControls[carryoverControlKey(key,owner)];
 }
 
 export function getProfileData(state, keyOrKeys, profile) {
   const keys = Array.isArray(keyOrKeys) ? keyOrKeys : [keyOrKeys];
   const result = { incomes:[], fixed:[], variable:[] };
 
-  keys.filter(Boolean).forEach(key => {
+  keys.filter(Boolean).forEach((key,index) => {
     const data=rawProfileData(state,key,profile);
-    result.incomes.push(...data.incomes);
+
+    // En vistas de varios meses, el saldo anterior solo se cuenta en el
+    // primer mes seleccionado. Así no se duplica como ingreso cada mes.
+    const incomes=index===0
+      ? data.incomes
+      : data.incomes.filter(item=>item.sourceType!=="carryover");
+
+    result.incomes.push(...incomes);
     result.fixed.push(...data.fixed);
     result.variable.push(...data.variable);
   });
-
-  // El saldo anterior se incorpora una sola vez:
-  // - en una vista mensual, para el mes seleccionado;
-  // - en una vista anual, como saldo de apertura del primer mes del periodo.
-  const firstKey=keys.filter(Boolean)[0];
-  if(firstKey){
-    const carryover=carryoverRecord(state,firstKey,profile);
-    if(carryover) result.incomes.unshift(carryover);
-  }
 
   return result;
 }

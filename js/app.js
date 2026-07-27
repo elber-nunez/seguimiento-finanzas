@@ -1,7 +1,7 @@
 import { $, MONTHS, NAMES, money, escapeHtml, today, uid, formatDate } from "./utils.js";
 import { loginWithGoogle, observeSession, logout } from "./auth.js";
 import { observeFinanceData, saveFinanceData } from "./firestore.js";
-import { createEmptyState, normalizeState, ensureMonth, getProfileData, calculateTotals, getHistory, previousMonthKey } from "./budget.js";
+import { createEmptyState, normalizeState, ensureMonth, getProfileData, calculateTotals, getHistory, previousMonthKey, syncCarryoverForMonth, suppressCarryover, markCarryoverManual } from "./budget.js";
 import { initNavigation, showView } from "./navigation.js";
 import { renderDashboard } from "./dashboard.js";
 import { initHistoryFilters, renderHistory, renderHistoryCategoryOptions } from "./history.js";
@@ -19,6 +19,7 @@ let saving = false;
 let saveQueued = false;
 let undoSnapshot = null;
 let undoTimer = null;
+let syncingCarryover = false;
 
 function allowedMonthIndexes(year=Number($("yearPicker").value)) {
   // En 2026 la analítica y los resúmenes comienzan en agosto.
@@ -300,8 +301,23 @@ function selectedOwner() {
   return selectedProfile==="general" ? currentUserProfile : selectedProfile;
 }
 
+function syncSelectedMonthCarryovers() {
+  const key=currentKey();
+  let changed=false;
+
+  ["elber","mayra"].forEach(owner=>{
+    if(syncCarryoverForMonth(state,key,owner,new Date())) changed=true;
+  });
+
+  if(changed && currentUser && !syncingCarryover){
+    syncingCarryover=true;
+    persist().finally(()=>{ syncingCarryover=false; });
+  }
+}
+
 function renderAll() {
   ensureMonth(state,currentKey());
+  syncSelectedMonthCarryovers();
   selectedProfile = $("profileSelect").value;
   state.ui.selectedProfile = selectedProfile;
   updateMonthCloseButton();
@@ -378,10 +394,7 @@ function renderIncome() {
   $("incomePlannedTotal").textContent = money(totals.incomePlanned);
   $("incomeActualTotal").textContent = money(totals.incomeActual);
   $("incomeList").innerHTML = data.incomes.length
-    ? data.incomes.map(item=>{
-        const isCarryover=item.sourceType==="carryover";
-        return itemRow({...item,kind:"income"},"income",!isCarryover,!isCarryover);
-      }).join("")
+    ? data.incomes.map(item=>itemRow({...item,kind:"income"},"income",true,item.sourceType!=="carryover")).join("")
     : '<div class="empty">No hay ingresos registrados.</div>';
   bindRealizeChecks($("incomeList"));
   bindEditRows($("incomeList"));
@@ -631,6 +644,9 @@ async function saveRecord(event) {
 
   const realized=actualAmount>0 || $("recordRealized").checked;
   const existingLocation=findRecordLocation(kind,id);
+  if(existingLocation?.item?.sourceType==="carryover"){
+    markCarryoverManual(state,existingLocation.key,existingLocation.owner);
+  }
   const preservedMetadata=existingLocation?.item
     ? Object.fromEntries(Object.entries(existingLocation.item).filter(([key])=>![
         "id","owner","concept","category","plannedAmount","actualAmount","realized","date","periodKey","locked"
@@ -657,6 +673,9 @@ async function deleteRecord() {
   if(!id || !location || !confirm("¿Eliminar este registro?")) return;
   if(!assertMonthOpen(location.key)) return;
   prepareUndo("Registro eliminado");
+  if(location.item.sourceType==="carryover"){
+    suppressCarryover(state,location.key,location.owner);
+  }
   location.collection.splice(location.collection.findIndex(item=>item.id===id),1);
   closeModal();
   renderAll();
@@ -707,7 +726,7 @@ async function copyPreviousIncomes() {
   let copied=0, skipped=0;
 
   state.months[source][person].incomes
-    .filter(item=>!isLoanRelatedRecord(item))
+    .filter(item=>!isLoanRelatedRecord(item) && item.sourceType!=="carryover")
     .forEach(item=>{
       const candidate={
         ...item,

@@ -1,4 +1,4 @@
-# Finanzas Elber y Mayra — V23
+# Finanzas Elber y Mayra — V24
 
 Aplicación web familiar para registrar, planificar y analizar ingresos, gastos, préstamos, pensiones escolares y saldos mensuales.
 
@@ -371,7 +371,7 @@ Antes de usar la V18 como versión definitiva, conviene validar:
 
 ## Versión
 
-Versión actual: **V23**
+Versión actual: **V24**
 
 Nombre sugerido de commit:
 
@@ -535,3 +535,34 @@ Se conservan:
 Esto evita romper el cronograma y la continuidad de los préstamos.
 
 Las categorías de ingresos y gastos continúan siendo generales para toda la aplicación.
+
+
+## Versión 24 — corrección del saldo restante mensual
+
+Se corrigió el comportamiento del saldo restante del mes anterior.
+
+### Nueva lógica
+
+- El saldo restante ya no se muestra automáticamente en meses futuros.
+- Solo se genera cuando el mes ya comenzó según la fecha del dispositivo.
+- Ejemplo:
+  - El saldo de agosto se genera en septiembre cuando septiembre ya inició.
+  - No se generan anticipadamente saldos en octubre, noviembre o diciembre.
+- Cada mes recibe como máximo un solo registro de saldo anterior por usuario.
+- En vistas de varios meses, el saldo anterior se suma únicamente en el primer mes seleccionado para evitar duplicaciones analíticas.
+
+### Eliminación y edición manual
+
+El registro `Saldo restante de <mes anterior>` ahora puede abrirse desde Ingresos.
+
+- Si se elimina manualmente, no vuelve a generarse automáticamente para ese mes y usuario.
+- Si se edita manualmente, la aplicación respeta el valor ingresado y deja de recalcularlo automáticamente.
+- El saldo anterior tampoco se copia con la función de copiar ingresos del mes anterior.
+
+### Ejemplo
+
+Si agosto termina con S/ 1.500 positivos:
+
+- Septiembre recibe `Saldo restante de agosto: S/ 1.500`.
+- Octubre no recibe nada anticipadamente.
+- Cuando octubre comience, se calcula el saldo real con el que terminó septiembre.

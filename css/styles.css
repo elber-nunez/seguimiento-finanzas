@@ -253,3 +253,5 @@ h1,h2,p{margin-top:0}
   .summary-result-heading,.summary-explanation{align-items:flex-start;flex-direction:column}
   .summary-explanation span{white-space:normal}
 }
+
+.status-tag.carryover{background:#e0f2fe;color:#075985}
