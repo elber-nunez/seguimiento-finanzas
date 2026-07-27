@@ -1,5 +1,6 @@
 import { $, money, escapeHtml, NAMES } from "./utils.js";
 import { calculateTotals, getProfileData } from "./budget.js";
+import { loanMetrics } from "./loans.js";
 
 export function renderDashboard(state,key,profile) {
   const data = calculateTotals(state,key,profile);
@@ -45,6 +46,12 @@ export function renderDashboard(state,key,profile) {
       <div class="category-values"><span>P ${money(value.planned)}</span><span>R ${money(value.actual)}</span></div>
     </div>
   `).join("") : '<div class="empty">No hay gastos registrados.</div>';
+
+  const loanData=loanMetrics(state,profile,key);
+  $("dashboardLoanActive").textContent=String(loanData.active);
+  $("dashboardLoanPending").textContent=money(loanData.pending);
+  $("dashboardLoanMonthPlanned").textContent=money(loanData.monthPlanned);
+  $("dashboardLoanMonthActual").textContent=money(loanData.monthActual);
 
   $("comparisonPanel").classList.toggle("hidden",profile!=="general");
   if (profile==="general") {

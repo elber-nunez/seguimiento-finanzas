@@ -4,7 +4,7 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
   <meta name="theme-color" content="#0f172a">
-  <title>Finanzas Elber y Mayra</title>
+  <title>Finanzas - V9</title>
   <link rel="stylesheet" href="css/styles.css">
   <link rel="stylesheet" href="css/layout.css">
   <link rel="stylesheet" href="css/dashboard.css">
@@ -27,7 +27,7 @@
     <aside class="sidebar">
       <div class="sidebar-brand">
         <strong>Finanzas</strong>
-        <span>Elber y Mayra</span>
+        <span>Elber y Mayra · V9</span>
       </div>
 
       <nav class="main-menu">
@@ -43,6 +43,7 @@
           <button data-view="summaryView">Resumen</button>
         </div>
 
+        <button class="menu-item" data-view="loansView"><span>▣</span>Préstamos</button>
         <button class="menu-item" data-view="dashboardView"><span>▦</span>Dashboard</button>
         <button class="menu-item" data-view="historyView"><span>◷</span>Historial</button>
         <button class="menu-item" data-view="settingsView"><span>⚙</span>Configuración</button>
@@ -159,6 +160,25 @@
           </div>
         </section>
 
+        <section id="loansView" class="view">
+          <div class="page-heading">
+            <div>
+              <h1>Préstamos</h1>
+              <p>Registra el dinero recibido y genera automáticamente las cuotas mensuales.</p>
+            </div>
+            <button id="addLoanBtn" class="primary-btn">+ Agregar préstamo</button>
+          </div>
+
+          <div class="loan-kpi-grid">
+            <article class="kpi-card"><span>Capital recibido</span><strong id="loanCapitalTotal">S/ 0,00</strong><small>Préstamos de la vista seleccionada</small></article>
+            <article class="kpi-card"><span>Total a devolver</span><strong id="loanRepaymentTotal">S/ 0,00</strong><small>Capital más intereses</small></article>
+            <article class="kpi-card"><span>Interés total</span><strong id="loanInterestTotal">S/ 0,00</strong><small>Costo total de los préstamos</small></article>
+            <article class="kpi-card"><span>Deuda pendiente</span><strong id="loanDebtPending">S/ 0,00</strong><small>Cuotas todavía no pagadas</small></article>
+          </div>
+
+          <div id="loanList" class="loan-list"></div>
+        </section>
+
         <section id="dashboardView" class="view">
           <div class="page-heading"><div><h1>Dashboard</h1><p>Indicadores visuales de la vista y el mes seleccionados.</p></div></div>
           <div class="dashboard-grid">
@@ -174,6 +194,18 @@
               </div>
             </article>
           </div>
+          <div class="loan-dashboard-grid">
+            <article class="panel">
+              <h2>Préstamos</h2>
+              <div class="loan-dashboard-values">
+                <div><span>Activos</span><strong id="dashboardLoanActive">0</strong></div>
+                <div><span>Deuda pendiente</span><strong id="dashboardLoanPending">S/ 0,00</strong></div>
+                <div><span>Cuotas previstas del mes</span><strong id="dashboardLoanMonthPlanned">S/ 0,00</strong></div>
+                <div><span>Cuotas reales del mes</span><strong id="dashboardLoanMonthActual">S/ 0,00</strong></div>
+              </div>
+            </article>
+          </div>
+
           <article class="panel dashboard-panel">
             <h2>Gastos por categoría</h2>
             <div id="categoryChart" class="category-chart"></div>
@@ -248,6 +280,66 @@
           </article>
         </section>
       </main>
+    </div>
+  </div>
+
+  <div id="loanModal" class="modal">
+    <div class="modal-card">
+      <button id="closeLoanModalBtn" class="modal-close">×</button>
+      <h2 id="loanModalTitle">Agregar préstamo</h2>
+      <form id="loanForm">
+        <input id="loanId" type="hidden">
+
+        <label>Responsable
+          <select id="loanOwner">
+            <option value="elber">Elber</option>
+            <option value="mayra">Mayra</option>
+          </select>
+        </label>
+
+        <label>Concepto
+          <input id="loanConcept" type="text" placeholder="Ejemplo: Préstamo personal" required>
+        </label>
+
+        <div class="form-two-columns">
+          <label>Monto recibido
+            <input id="loanPrincipal" type="number" min="0.01" step="0.01" required>
+          </label>
+
+          <label>Total a devolver
+            <input id="loanTotalRepayment" type="number" min="0.01" step="0.01" required>
+          </label>
+        </div>
+
+        <div class="form-two-columns">
+          <label>Número de cuotas
+            <input id="loanInstallments" type="number" min="1" max="120" step="1" required>
+          </label>
+
+          <label>Primera cuota
+            <input id="loanFirstPaymentMonth" type="month" required>
+          </label>
+        </div>
+
+        <div class="loan-calculation">
+          <div><span>Interés</span><strong id="loanInterestPreview">S/ 0,00</strong></div>
+          <div><span>Cuota aproximada</span><strong id="loanInstallmentPreview">S/ 0,00</strong></div>
+        </div>
+
+        <label id="loanPaidOffField" class="inline-check hidden">
+          <input id="loanPaidOff" type="checkbox">
+          Cancelado en su totalidad
+        </label>
+
+        <label id="loanPayoffMonthField" class="hidden">Mes de cancelación total
+          <input id="loanPayoffMonth" type="month">
+        </label>
+
+        <p id="loanPayoffHelp" class="field-help hidden">La cuota del mes elegido se ajustará al saldo restante y las cuotas posteriores se eliminarán.</p>
+
+        <button class="primary-btn full-btn" type="submit">Guardar préstamo</button>
+        <button id="deleteLoanBtn" class="danger-btn full-btn hidden" type="button">Eliminar préstamo</button>
+      </form>
     </div>
   </div>
 

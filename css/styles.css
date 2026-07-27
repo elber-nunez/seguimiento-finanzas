@@ -82,3 +82,34 @@ h1,h2,p{margin-top:0}
 @media(max-width:560px){
   .two-kpis{grid-template-columns:1fr 1fr}
 }
+
+.loan-kpi-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin-bottom:15px}
+.loan-list{display:flex;flex-direction:column;gap:12px;max-width:980px}
+.loan-card{padding:17px;background:#fff;border:1px solid var(--line);border-radius:var(--radius);box-shadow:var(--shadow);cursor:pointer}
+.loan-card:hover{border-color:#b8c7d9}
+.loan-card-heading{display:flex;justify-content:space-between;align-items:flex-start;gap:12px}
+.loan-title{font-weight:900;font-size:1rem}
+.loan-status{padding:5px 9px;border-radius:999px;font-size:.67rem;font-weight:900}
+.loan-status.active{background:#fff7ed;color:#c2410c}.loan-status.paid{background:#dcfce7;color:#166534}
+.loan-card-grid{display:grid;grid-template-columns:repeat(6,1fr);gap:10px;margin-top:14px}
+.loan-card-grid div{padding:10px;border-radius:12px;background:#f8fafc}
+.loan-card-grid span,.loan-card-grid strong{display:block}
+.loan-card-grid span{color:var(--muted);font-size:.67rem}.loan-card-grid strong{margin-top:4px;font-size:.82rem}
+.loan-calculation{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin:4px 0 13px}
+.loan-calculation div{padding:11px;border-radius:12px;background:#f8fafc;border:1px solid var(--line)}
+.loan-calculation span,.loan-calculation strong{display:block}.loan-calculation span{font-size:.7rem;color:var(--muted)}.loan-calculation strong{margin-top:4px}
+.field-help{margin:-4px 0 12px;color:var(--muted);font-size:.73rem;line-height:1.4}
+.loan-dashboard-grid{margin-top:14px}
+.loan-dashboard-values{display:grid;grid-template-columns:repeat(4,1fr);gap:10px}
+.loan-dashboard-values div{padding:12px;border-radius:12px;background:#f8fafc}
+.loan-dashboard-values span,.loan-dashboard-values strong{display:block}
+.loan-dashboard-values span{font-size:.68rem;color:var(--muted)}.loan-dashboard-values strong{margin-top:5px}
+@media(max-width:900px){
+  .loan-kpi-grid{grid-template-columns:repeat(2,1fr)}
+  .loan-card-grid{grid-template-columns:repeat(3,1fr)}
+}
+@media(max-width:560px){
+  .loan-kpi-grid{grid-template-columns:1fr 1fr}
+  .loan-card-grid{grid-template-columns:repeat(2,1fr)}
+  .loan-dashboard-values{grid-template-columns:1fr 1fr}
+}

@@ -99,3 +99,20 @@ Los dos usuarios autorizados pueden visualizar y actualizar los datos.
 - **Saldo previsto:** ingresos previstos menos gastos previstos.
 - **Saldo real:** ingresos realmente recibidos menos gastos realmente pagados.
 - **Diferencia:** saldo real menos saldo previsto.
+
+
+## Versión 9 — Préstamos
+
+- Título visible: `Finanzas - V9`.
+- Nueva sección de Préstamos.
+- Al crear un préstamo:
+  - Registra el monto recibido como ingreso real del mes actual.
+  - Usa la categoría `Préstamo`.
+  - Genera las cuotas como gastos fijos previstos desde el mes elegido.
+  - Reparte correctamente los decimales y ajusta la última cuota.
+- Los ingresos y cuotas generados por préstamos no se copian al mes siguiente.
+- Cancelación anticipada:
+  - Se elige el mes de cancelación.
+  - La cuota de ese mes se ajusta al saldo restante.
+  - Las cuotas posteriores se eliminan.
+- Dashboard actualizado con préstamos activos, deuda pendiente y cuotas del mes.

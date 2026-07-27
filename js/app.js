@@ -5,6 +5,7 @@ import { createEmptyState, normalizeState, ensureMonth, getProfileData, calculat
 import { initNavigation, showView } from "./navigation.js";
 import { renderDashboard } from "./dashboard.js";
 import { initHistoryFilters, renderHistory, renderHistoryCategoryOptions } from "./history.js";
+import { createLoan, updateLoanMetadata, payoffLoan, deleteLoan, loanMetrics, loanRecords } from "./loans.js";
 
 let currentUser = null;
 let currentUserProfile = null;
@@ -59,6 +60,7 @@ function renderAll() {
   renderVariable();
   renderSummary();
   renderDashboard(state,currentKey(),selectedProfile);
+  renderLoans();
   renderCategoryEditors();
   renderHistoryCategoryOptions(state);
   renderHistory(state,currentKey(),selectedProfile);
@@ -285,7 +287,7 @@ async function copyPreviousIncomes() {
 
   ["elber","mayra"].forEach(person=>{
     const existing = new Set(target[person].incomes.map(duplicateKey));
-    state.months[source][person].incomes.forEach(item=>{
+    state.months[source][person].incomes.filter(item=>item.sourceType!=="loan-income").forEach(item=>{
       const candidate={...item,id:uid(),owner:person,date:today(),realized:false,actualAmount:0};
       const key=duplicateKey(candidate);
       if(existing.has(key)){ skipped++; return; }
@@ -308,8 +310,8 @@ async function copyPreviousFixed() {
 
   ["elber","mayra"].forEach(person=>{
     const existing = new Set(target[person].fixed.map(duplicateKey));
-    state.months[source][person].fixed.forEach(item=>{
-      const candidate={...item,id:uid(),owner:person,paid:false,date:today()};
+    state.months[source][person].fixed.filter(item=>item.sourceType!=="loan-installment").forEach(item=>{
+      const candidate={...item,id:uid(),owner:person,realized:false,actualAmount:0,date:today()};
       const key=duplicateKey(candidate);
       if(existing.has(key)){ skipped++; return; }
       target[person].fixed.push(candidate);
@@ -384,6 +386,133 @@ async function resetMonth() {
   renderAll();await persist();
 }
 
+
+function renderLoans() {
+  const metrics=loanMetrics(state,selectedProfile,currentKey());
+  $("loanCapitalTotal").textContent=money(metrics.principal);
+  $("loanRepaymentTotal").textContent=money(metrics.totalRepayment);
+  $("loanInterestTotal").textContent=money(metrics.interest);
+  $("loanDebtPending").textContent=money(metrics.pending);
+
+  $("loanList").innerHTML=metrics.loans.length ? metrics.loans.map(loan=>{
+    const records=loanRecords(state,loan.id);
+    const paid=records.installments.filter(({item})=>item.realized).reduce((sum,{item})=>sum+Number(item.actualAmount||0),0);
+    const pending=Math.max(0,loan.totalRepayment-paid);
+    const paidCount=records.installments.filter(({item})=>item.realized).length;
+    return `<article class="loan-card" data-loan-id="${loan.id}">
+      <div class="loan-card-heading">
+        <div>
+          <div class="loan-title">${escapeHtml(loan.concept)} <span class="owner-tag">${NAMES[loan.owner]}</span></div>
+          <div class="item-meta">${loan.status==="paid"?"Cancelado en su totalidad":"Préstamo activo"} · Primera cuota ${loan.firstPaymentMonthKey}</div>
+        </div>
+        <span class="loan-status ${loan.status==="paid"?"paid":"active"}">${loan.status==="paid"?"Cancelado":"Activo"}</span>
+      </div>
+      <div class="loan-card-grid">
+        <div><span>Recibido</span><strong>${money(loan.principal)}</strong></div>
+        <div><span>Total</span><strong>${money(loan.totalRepayment)}</strong></div>
+        <div><span>Interés</span><strong>${money(loan.totalRepayment-loan.principal)}</strong></div>
+        <div><span>Pagado</span><strong>${money(paid)}</strong></div>
+        <div><span>Pendiente</span><strong>${money(pending)}</strong></div>
+        <div><span>Cuotas pagadas</span><strong>${paidCount} / ${loan.installments}</strong></div>
+      </div>
+    </article>`;
+  }).join("") : '<div class="empty">No hay préstamos registrados.</div>';
+
+  document.querySelectorAll("[data-loan-id]").forEach(card=>{
+    card.addEventListener("click",()=>openLoanModal(card.dataset.loanId));
+  });
+}
+
+function updateLoanPreview() {
+  const principal=Number($("loanPrincipal").value||0);
+  const total=Number($("loanTotalRepayment").value||0);
+  const installments=Math.max(1,Number($("loanInstallments").value||1));
+  $("loanInterestPreview").textContent=money(Math.max(0,total-principal));
+  $("loanInstallmentPreview").textContent=money(total/installments);
+}
+
+function togglePayoffFields() {
+  const checked=$("loanPaidOff").checked;
+  $("loanPayoffMonthField").classList.toggle("hidden",!checked);
+  $("loanPayoffHelp").classList.toggle("hidden",!checked);
+  $("loanPayoffMonth").required=checked;
+}
+
+function openLoanModal(id=null) {
+  $("loanForm").reset();
+  $("loanId").value=id||"";
+  $("loanOwner").value=selectedOwner();
+  $("loanFirstPaymentMonth").value=currentKey();
+  $("loanPayoffMonth").value=currentKey();
+  $("loanPaidOffField").classList.toggle("hidden",!id);
+  $("deleteLoanBtn").classList.toggle("hidden",!id);
+  $("loanModalTitle").textContent=id?"Editar préstamo":"Agregar préstamo";
+
+  if(id){
+    const loan=(state.loans||[]).find(item=>item.id===id);
+    if(!loan) return;
+    $("loanOwner").value=loan.owner;
+    $("loanConcept").value=loan.concept;
+    $("loanPrincipal").value=loan.principal;
+    $("loanTotalRepayment").value=loan.totalRepayment;
+    $("loanInstallments").value=loan.installments;
+    $("loanFirstPaymentMonth").value=loan.firstPaymentMonthKey;
+    $("loanPrincipal").disabled=true;
+    $("loanTotalRepayment").disabled=true;
+    $("loanInstallments").disabled=true;
+    $("loanFirstPaymentMonth").disabled=true;
+    $("loanOwner").disabled=true;
+    $("loanPaidOff").checked=loan.status==="paid";
+    $("loanPayoffMonth").value=loan.payoffMonthKey||currentKey();
+  }else{
+    ["loanPrincipal","loanTotalRepayment","loanInstallments","loanFirstPaymentMonth","loanOwner"].forEach(id=>$ (id).disabled=false);
+  }
+  togglePayoffFields();
+  updateLoanPreview();
+  $("loanModal").classList.add("open");
+}
+
+function closeLoanModal(){ $("loanModal").classList.remove("open"); }
+
+async function saveLoan(event) {
+  event.preventDefault();
+  const id=$("loanId").value;
+  const values={
+    owner:$("loanOwner").value,
+    concept:$("loanConcept").value.trim(),
+    principal:Number($("loanPrincipal").value),
+    totalRepayment:Number($("loanTotalRepayment").value),
+    installments:Number($("loanInstallments").value),
+    receivedMonthKey:currentKey(),
+    firstPaymentMonthKey:$("loanFirstPaymentMonth").value
+  };
+  if(values.totalRepayment<values.principal) return alert("El total a devolver no puede ser menor que el monto recibido.");
+
+  if(!id){
+    createLoan(state,values);
+  }else{
+    updateLoanMetadata(state,id,values);
+    const loan=(state.loans||[]).find(item=>item.id===id);
+    if($("loanPaidOff").checked && loan.status!=="paid"){
+      const payoffAmount=payoffLoan(state,id,$("loanPayoffMonth").value);
+      alert(`Cancelación total registrada por ${money(payoffAmount)}. Las cuotas posteriores fueron eliminadas.`);
+    }
+  }
+  closeLoanModal();
+  renderAll();
+  await persist();
+}
+
+async function removeLoan() {
+  const id=$("loanId").value;
+  if(!id || !confirm("¿Eliminar este préstamo y sus registros relacionados?")) return;
+  if(deleteLoan(state,id)){
+    closeLoanModal();
+    renderAll();
+    await persist();
+  }
+}
+
 function bindUi() {
   initNavigation();
   initHistoryFilters(renderAll);
@@ -394,6 +523,7 @@ function bindUi() {
   });
   $("logoutBtn").addEventListener("click",logout);$("userButton").addEventListener("click",()=>confirm("¿Cerrar sesión?")&&logout());
   $("addIncomeBtn").addEventListener("click",()=>openRecordModal("income"));
+  $("addLoanBtn").addEventListener("click",()=>openLoanModal());
   $("addFixedBtn").addEventListener("click",()=>openRecordModal("fixed"));
   $("addVariableBtn").addEventListener("click",()=>openRecordModal("variable"));
   $("quickExpenseBtn").addEventListener("click",()=>openRecordModal("variable"));
@@ -419,6 +549,12 @@ function bindUi() {
     if(event.key==="Enter"){event.preventDefault();addCategory("expense","newExpenseCategory");}
   });
   $("resetMonthBtn").addEventListener("click",resetMonth);
+  $("closeLoanModalBtn").addEventListener("click",closeLoanModal);
+  $("loanModal").addEventListener("click",event=>event.target===$("loanModal")&&closeLoanModal());
+  $("loanForm").addEventListener("submit",saveLoan);
+  $("deleteLoanBtn").addEventListener("click",removeLoan);
+  ["loanPrincipal","loanTotalRepayment","loanInstallments"].forEach(id=>$(id).addEventListener("input",updateLoanPreview));
+  $("loanPaidOff").addEventListener("change",togglePayoffFields);
 }
 
 initPeriodPickers();

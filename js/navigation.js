@@ -3,7 +3,7 @@ import { $ } from "./utils.js";
 const titles = {
   homeView:"Inicio", incomeView:"Presupuesto · Ingresos", fixedView:"Presupuesto · Gastos fijos",
   variableView:"Presupuesto · Gastos variables", summaryView:"Presupuesto · Resumen",
-  dashboardView:"Dashboard", historyView:"Historial", settingsView:"Configuración"
+  loansView:"Préstamos", dashboardView:"Dashboard", historyView:"Historial", settingsView:"Configuración"
 };
 
 export function showView(viewId) {

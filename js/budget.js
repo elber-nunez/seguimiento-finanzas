@@ -3,6 +3,7 @@ import { DEFAULT_EXPENSE_CATEGORIES, DEFAULT_INCOME_CATEGORIES } from "./utils.j
 export function createEmptyState() {
   return {
     months:{},
+    loans:[],
     ui:{ selectedProfile:"general" },
     settings:{
       categories:{
@@ -44,6 +45,7 @@ function migrateRecord(item, kind) {
 export function normalizeState(state) {
   const normalized = state || createEmptyState();
   normalized.months ||= {};
+  normalized.loans ||= [];
   normalized.ui ||= { selectedProfile:"general" };
   normalized.settings ||= {};
   normalized.settings.categories ||= {};
@@ -55,6 +57,9 @@ export function normalizeState(state) {
     Array.isArray(normalized.settings.categories.expense) && normalized.settings.categories.expense.length
       ? normalized.settings.categories.expense
       : [...DEFAULT_EXPENSE_CATEGORIES];
+
+  if (!normalized.settings.categories.income.includes("Préstamo")) normalized.settings.categories.income.unshift("Préstamo");
+  if (!normalized.settings.categories.expense.includes("Préstamo")) normalized.settings.categories.expense.unshift("Préstamo");
 
   Object.values(normalized.months).forEach(month => {
     ["elber","mayra"].forEach(person => {
