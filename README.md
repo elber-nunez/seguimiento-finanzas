@@ -228,3 +228,15 @@ Los dos usuarios autorizados pueden visualizar y actualizar los datos.
 - Si el mes anterior termina en cero o negativo, no se genera saldo de arrastre.
 - El saldo es calculado, no se guarda como un registro editable; por eso se actualiza automáticamente cuando cambian ingresos o gastos anteriores.
 - En la vista anual, el saldo de apertura se incorpora solo una vez al inicio del periodo para evitar duplicar ingresos entre meses.
+
+
+## Versión 17 — filtro múltiple de meses e indicadores por categoría
+
+- Título visible: `Finanzas - V17`.
+- El selector de mes superior ahora funciona como un filtro con checks.
+- Permite elegir uno o varios meses.
+- La opción **Todos** marca todos los meses habilitados.
+- En 2026, Todos considera agosto a diciembre; enero a julio aparecen deshabilitados para la analítica.
+- Dashboard, Resumen y Analítica usan directamente los meses marcados en el filtro superior.
+- Se eliminaron los filtros repetidos dentro de esas secciones.
+- En Gastos fijos, al filtrar una categoría, los indicadores Previsto, Real y Pendiente se recalculan usando únicamente la categoría visible.

@@ -181,3 +181,5 @@ h1,h2,p{margin-top:0}
 }
 
 .status-tag.carryover{background:#e0f2fe;color:#075985}
+
+/* Los periodos analíticos ahora se controlan desde el filtro superior. */

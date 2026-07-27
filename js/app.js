@@ -14,62 +14,148 @@ let currentUserProfile = null;
 let state = createEmptyState();
 let stopFinanceObserver = null;
 let selectedProfile = "general";
+let selectedMonths = new Set();
 let saving = false;
 let saveQueued = false;
 
+function allowedMonthIndexes(year=Number($("yearPicker").value)) {
+  // En 2026 la analítica y los resúmenes comienzan en agosto.
+  return year===2026
+    ? [7,8,9,10,11]
+    : Array.from({length:12},(_,index)=>index);
+}
+
+function sortedSelectedMonths() {
+  return [...selectedMonths].sort((a,b)=>a-b);
+}
+
+function primaryMonthIndex() {
+  const selected=sortedSelectedMonths();
+  return selected.length ? selected[0] : allowedMonthIndexes()[0];
+}
+
 function currentKey() {
-  return `${$("yearPicker").value}-${String(Number($("monthPicker").value)+1).padStart(2,"0")}`;
+  const month=primaryMonthIndex();
+  $("monthPicker").value=String(month);
+  return `${$("yearPicker").value}-${String(month+1).padStart(2,"0")}`;
 }
 
-function annualStartMonth(year) {
-  return Number(year) === 2026 ? 8 : 1;
-}
-
-function annualKeys(year) {
-  const start=annualStartMonth(year);
-  return Array.from({length:13-start},(_,index)=>
-    `${year}-${String(start+index).padStart(2,"0")}`
+function selectedPeriodKeys() {
+  const year=Number($("yearPicker").value);
+  return sortedSelectedMonths().map(month=>
+    `${year}-${String(month+1).padStart(2,"0")}`
   );
 }
 
-function periodKeys(mode) {
-  return mode==="all" ? annualKeys(Number($("yearPicker").value)) : [currentKey()];
-}
-
-function periodRows(mode) {
-  const year=Number($("yearPicker").value);
-  const keys=periodKeys(mode);
-  return keys.map(key=>({
-    key,
-    label:MONTHS[Number(key.slice(5,7))-1].slice(0,3)
+function periodRows() {
+  return sortedSelectedMonths().map(month=>({
+    key:`${$("yearPicker").value}-${String(month+1).padStart(2,"0")}`,
+    label:MONTHS[month].slice(0,3)
   }));
 }
 
-function periodNote(mode) {
+function periodNote() {
+  const months=sortedSelectedMonths();
   const year=Number($("yearPicker").value);
-  if(mode!=="all") return `${MONTHS[Number($("monthPicker").value)]} ${year}`;
-  return year===2026
-    ? "Todos: agosto a diciembre de 2026. Enero a julio se excluyen de la analítica."
-    : `Todos: enero a diciembre de ${year}.`;
+  if(months.length===1) return `${MONTHS[months[0]]} ${year}`;
+  if(months.length===allowedMonthIndexes(year).length){
+    return year===2026
+      ? "Todos: agosto a diciembre de 2026. Enero a julio se excluyen de la analítica."
+      : `Todos: enero a diciembre de ${year}.`;
+  }
+  return `${months.map(month=>MONTHS[month]).join(", ")} · ${year}`;
 }
 
-function syncAnalysisFilters(source) {
-  ["summaryPeriodFilter","dashboardPeriodFilter","analyticsPeriodFilter"].forEach(id=>{
-    if($(id)!==source) $(id).value=source.value;
+function updateMonthFilterLabel() {
+  const months=sortedSelectedMonths();
+  const allowed=allowedMonthIndexes();
+  let label="Seleccionar meses";
+  if(months.length===1) label=MONTHS[months[0]];
+  else if(months.length===allowed.length) label="Todos";
+  else if(months.length>1) label=`${MONTHS[months[0]]} +${months.length-1}`;
+  $("monthFilterLabel").textContent=label;
+  $("selectAllMonths").checked=months.length===allowed.length;
+  $("selectAllMonths").indeterminate=months.length>0 && months.length<allowed.length;
+}
+
+function renderMonthCheckboxes(resetInvalid=false) {
+  const year=Number($("yearPicker").value);
+  const allowed=allowedMonthIndexes(year);
+
+  if(resetInvalid){
+    selectedMonths=new Set([...selectedMonths].filter(month=>allowed.includes(month)));
+  }
+  if(!selectedMonths.size){
+    const now=new Date();
+    const preferred=year===now.getFullYear() && allowed.includes(now.getMonth())
+      ? now.getMonth()
+      : allowed[0];
+    selectedMonths.add(preferred);
+  }
+
+  $("monthCheckboxList").innerHTML=MONTHS.map((month,index)=>{
+    const enabled=allowed.includes(index);
+    return `<label class="month-check ${enabled?"":"disabled"}">
+      <input type="checkbox" value="${index}" ${selectedMonths.has(index)?"checked":""} ${enabled?"":"disabled"}>
+      <span>${month}</span>
+      ${!enabled && year===2026 ? '<small>Fuera del periodo</small>' : ""}
+    </label>`;
+  }).join("");
+
+  $("monthCheckboxList").querySelectorAll("input:not(:disabled)").forEach(check=>{
+    check.addEventListener("change",()=>{
+      const month=Number(check.value);
+      if(check.checked) selectedMonths.add(month);
+      else selectedMonths.delete(month);
+
+      if(!selectedMonths.size){
+        selectedMonths.add(month);
+        check.checked=true;
+      }
+      updateMonthFilterLabel();
+      renderAll();
+    });
   });
+  updateMonthFilterLabel();
+}
+
+function toggleAllMonths(checked) {
+  const allowed=allowedMonthIndexes();
+  selectedMonths=checked ? new Set(allowed) : new Set([allowed[0]]);
+  renderMonthCheckboxes();
   renderAll();
 }
 
 function initPeriodPickers() {
   const now = new Date();
   $("monthPicker").innerHTML = MONTHS.map((month,index)=>`<option value="${index}">${month}</option>`).join("");
-  $("monthPicker").value = now.getMonth();
+
   const years=[];
   for(let year=now.getFullYear()-3;year<=now.getFullYear()+3;year++) years.push(`<option value="${year}">${year}</option>`);
   $("yearPicker").innerHTML=years.join("");
   $("yearPicker").value=now.getFullYear();
-  $("monthPicker").addEventListener("change",renderAll);
-  $("yearPicker").addEventListener("change",renderAll);
+
+  const initialAllowed=allowedMonthIndexes(now.getFullYear());
+  selectedMonths.add(initialAllowed.includes(now.getMonth()) ? now.getMonth() : initialAllowed[0]);
+  renderMonthCheckboxes();
+
+  $("yearPicker").addEventListener("change",()=>{
+    renderMonthCheckboxes(true);
+    renderAll();
+  });
+
+  $("monthFilterButton").addEventListener("click",event=>{
+    event.stopPropagation();
+    const popover=$("monthFilterPopover");
+    popover.classList.toggle("hidden");
+    $("monthFilterButton").setAttribute("aria-expanded",String(!popover.classList.contains("hidden")));
+  });
+  $("monthFilterPopover").addEventListener("click",event=>event.stopPropagation());
+  document.addEventListener("click",()=>{
+    $("monthFilterPopover").classList.add("hidden");
+    $("monthFilterButton").setAttribute("aria-expanded","false");
+  });
+  $("selectAllMonths").addEventListener("change",event=>toggleAllMonths(event.target.checked));
 }
 
 async function persist() {
@@ -116,18 +202,16 @@ function renderAll() {
   renderFixed();
   renderVariable();
   renderSummary();
-  const dashboardMode=$("dashboardPeriodFilter").value;
-  const dashboardKeys=periodKeys(dashboardMode);
-  $("dashboardPeriodNote").textContent=periodNote(dashboardMode);
-  renderDashboard(state,dashboardKeys,selectedProfile);
+  const analysisKeys=selectedPeriodKeys();
+  $("dashboardPeriodNote").textContent=periodNote();
+  renderDashboard(state,analysisKeys,selectedProfile);
 
-  const analyticsMode=$("analyticsPeriodFilter").value;
   renderAnalytics(
     state,
-    periodKeys(analyticsMode),
+    analysisKeys,
     selectedProfile,
-    periodRows(analyticsMode),
-    periodNote(analyticsMode)
+    periodRows(),
+    periodNote()
   );
 
   renderLoans();
@@ -195,11 +279,6 @@ function renderIncome() {
 
 function renderFixed() {
   const data = getProfileData(state,currentKey(),selectedProfile);
-  const totals = calculateTotals(state,currentKey(),selectedProfile);
-  $("fixedPlanned").textContent=money(totals.fixedPlanned);
-  $("fixedPaid").textContent=money(totals.fixedActual);
-  $("fixedPending").textContent=money(data.fixed.filter(item=>!item.realized).reduce((sum,item)=>sum+Number(item.plannedAmount||0),0));
-
   const currentFilter=$("fixedCategoryFilter").value || "all";
   const categories=[...new Set(data.fixed.map(item=>item.category).filter(Boolean))].sort((x,y)=>x.localeCompare(y,"es"));
   $("fixedCategoryFilter").innerHTML='<option value="all">Todas las categorías</option>'+categories.map(category=>`<option>${escapeHtml(category)}</option>`).join("");
@@ -208,6 +287,13 @@ function renderFixed() {
   const filtered=$("fixedCategoryFilter").value==="all"
     ? data.fixed
     : data.fixed.filter(item=>item.category===$("fixedCategoryFilter").value);
+
+  const filteredPlanned=filtered.reduce((sum,item)=>sum+Number(item.plannedAmount||0),0);
+  const filteredActual=filtered.filter(item=>item.realized).reduce((sum,item)=>sum+Number(item.actualAmount||0),0);
+  const filteredPending=filtered.filter(item=>!item.realized).reduce((sum,item)=>sum+Number(item.plannedAmount||0),0);
+  $("fixedPlanned").textContent=money(filteredPlanned);
+  $("fixedPaid").textContent=money(filteredActual);
+  $("fixedPending").textContent=money(filteredPending);
 
   $("fixedList").innerHTML = filtered.length
     ? filtered.map(item=>itemRow({...item,kind:"fixed"},"expense",true,true)).join("")
@@ -229,9 +315,8 @@ function renderVariable() {
 }
 
 function renderSummary() {
-  const mode=$("summaryPeriodFilter").value;
-  const totals = calculateTotals(state,periodKeys(mode),selectedProfile);
-  $("summaryPeriodNote").textContent=periodNote(mode);
+  const totals = calculateTotals(state,selectedPeriodKeys(),selectedProfile);
+  $("summaryPeriodNote").textContent=periodNote();
   $("summaryIncomePlanned").textContent=money(totals.incomePlanned);
   $("summaryIncomeActual").textContent=money(totals.incomeActual);
   $("summaryExpensePlanned").textContent=money(totals.expensePlanned);
@@ -842,9 +927,6 @@ function bindUi() {
   initHistoryFilters(renderAll);
   $("profileSelect").addEventListener("change",renderAll);
   $("fixedCategoryFilter").addEventListener("change",renderFixed);
-  ["summaryPeriodFilter","dashboardPeriodFilter","analyticsPeriodFilter"].forEach(id=>{
-    $(id).addEventListener("change",event=>syncAnalysisFilters(event.target));
-  });
   $("googleLoginBtn").addEventListener("click",async()=>{
     $("loginMessage").textContent="";
     try{await loginWithGoogle();}catch(error){$("loginMessage").textContent=error.message;}

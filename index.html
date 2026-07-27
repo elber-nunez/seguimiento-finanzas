@@ -4,7 +4,7 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
   <meta name="theme-color" content="#0f172a">
-  <title>Finanzas - V16</title>
+  <title>Finanzas - V17</title>
   <link rel="stylesheet" href="css/styles.css">
   <link rel="stylesheet" href="css/layout.css">
   <link rel="stylesheet" href="css/dashboard.css">
@@ -27,7 +27,7 @@
     <aside class="sidebar">
       <div class="sidebar-brand">
         <strong>Finanzas</strong>
-        <span>Elber y Mayra · V16</span>
+        <span>Elber y Mayra · V17</span>
       </div>
 
       <nav class="main-menu">
@@ -67,7 +67,20 @@
             <option value="elber">Elber</option>
             <option value="mayra">Mayra</option>
           </select>
-          <select id="monthPicker" aria-label="Mes"></select>
+          <div class="month-multiselect">
+            <button id="monthFilterButton" class="month-filter-button" type="button" aria-expanded="false">
+              <span id="monthFilterLabel">Agosto</span>
+              <b>⌄</b>
+            </button>
+            <div id="monthFilterPopover" class="month-filter-popover hidden">
+              <label class="month-check all-months">
+                <input id="selectAllMonths" type="checkbox">
+                <strong>Todos</strong>
+              </label>
+              <div id="monthCheckboxList" class="month-checkbox-list"></div>
+            </div>
+          </div>
+          <select id="monthPicker" class="hidden" aria-label="Mes activo"></select>
           <select id="yearPicker" aria-label="Año"></select>
         </div>
 
@@ -157,13 +170,7 @@
         <section id="summaryView" class="view">
           <div class="page-heading">
             <div><h1>Resumen financiero</h1><p>Planificación del mes seleccionado o del periodo anual habilitado.</p></div>
-            <div class="analysis-period-control">
-              <label for="summaryPeriodFilter">Periodo</label>
-              <select id="summaryPeriodFilter">
-                <option value="month">Mes seleccionado</option>
-                <option value="all">Todos</option>
-              </select>
-            </div>
+            
           </div>
           <p id="summaryPeriodNote" class="period-note"></p>
           <div class="summary-grid">
@@ -234,13 +241,7 @@
         <section id="dashboardView" class="view">
           <div class="page-heading">
             <div><h1>Dashboard</h1><p>Indicadores visuales del mes o del periodo anual habilitado.</p></div>
-            <div class="analysis-period-control">
-              <label for="dashboardPeriodFilter">Periodo</label>
-              <select id="dashboardPeriodFilter">
-                <option value="month">Mes seleccionado</option>
-                <option value="all">Todos</option>
-              </select>
-            </div>
+            
           </div>
           <p id="dashboardPeriodNote" class="period-note"></p>
           <div class="dashboard-grid">
@@ -289,13 +290,7 @@
               <h1>Analítica financiera</h1>
               <p>Indicadores estándar de salud financiera para Elber, Mayra y el consolidado general.</p>
             </div>
-            <div class="analysis-period-control">
-              <label for="analyticsPeriodFilter">Periodo</label>
-              <select id="analyticsPeriodFilter">
-                <option value="month">Mes seleccionado</option>
-                <option value="all">Todos</option>
-              </select>
-            </div>
+            
           </div>
 
           <p id="analyticsPeriodNote" class="period-note"></p>
