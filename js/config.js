@@ -9,6 +9,7 @@ export const firebaseConfig = {
 
 export const allowedUsers = {
   "elbernunez97@gmail.com": "elber",
+  "mayra.lucigia@gmail.com": "mayra",
   "mayra.barrera.g01@gmail.com": "mayra"
 };
 
