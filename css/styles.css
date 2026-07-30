@@ -287,3 +287,11 @@ h1,h2,p{margin-top:0}
 }
 
 .month-closure-heading small{display:block;margin-top:4px;color:#315b7d;font-size:.7rem;font-weight:800}
+
+.school-amount-cell strong,.school-amount-cell span{display:block}
+.school-month-owner{margin-top:3px;color:var(--muted);font-size:.62rem;font-weight:800}
+.school-transfer-btn{margin-top:6px;padding:4px 7px;border:1px solid #bfdbfe;border-radius:7px;background:#eff6ff;color:#1d4ed8;font-size:.58rem;font-weight:850;cursor:pointer}
+.school-transfer-btn:hover{background:#dbeafe}
+@media(max-width:760px){
+  .school-transfer-btn{padding:5px 6px;font-size:.56rem}
+}

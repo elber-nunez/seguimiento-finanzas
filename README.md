@@ -1,4 +1,4 @@
-# Finanzas Elber y Mayra — V2.2
+# Finanzas Elber y Mayra — V2.4
 
 Aplicación web familiar para registrar, planificar y analizar ingresos, gastos, préstamos, pensiones escolares y saldos mensuales.
 
@@ -371,7 +371,7 @@ Antes de usar la V18 como versión definitiva, conviene validar:
 
 ## Versión
 
-Versión actual: **V2.2**
+Versión actual: **V2.4**
 
 Nombre sugerido de commit:
 
@@ -683,3 +683,53 @@ Cuando se reabre un mes y se modifican ingresos, gastos o checks:
 
 - El título de la pestaña ahora muestra únicamente `Finanzas`.
 - Se agregó un favicon con el icono 💰.
+
+
+## Versión 2.3 — transferencia mensual de pensiones y vista sin fechas
+
+### Transferir una cuota escolar
+
+Cada celda mensual de la matriz escolar muestra:
+
+- Monto.
+- Responsable actual.
+- Botón `Cambiar responsable`.
+
+Al cambiar Mayra por Elber o Elber por Mayra:
+
+- Solo se traslada esa cuota mensual.
+- La cuota se mueve al gasto fijo del nuevo responsable.
+- Desaparece del gasto fijo del responsable anterior.
+- No se duplica el registro.
+- El monto, estado, alumno y relación con la pensión se conservan.
+- El total General no cambia.
+- Los indicadores individuales de Elber y Mayra se recalculan.
+
+Los meses cerrados continúan bloqueados para ambos responsables.
+
+### Fechas ocultas en las listas
+
+Se eliminó de la vista la fecha mostrada debajo de:
+
+- Ingresos.
+- Gastos fijos.
+- Gastos variables.
+- Cuotas y otros registros.
+
+La fecha continúa almacenada internamente y sigue disponible al editar el registro, pero ya no se muestra en las tarjetas para evitar confusión al copiar o trasladar información entre meses.
+
+
+## Versión 2.4 — autorización de las dos cuentas de Mayra
+
+La aplicación reconoce como perfil Mayra cualquiera de estas cuentas:
+
+- `mayra.lucigia@gmail.com`
+- `mayra.barrera.g01@gmail.com`
+
+Elber continúa autorizado con:
+
+- `elbernunez97@gmail.com`
+
+También se actualizó el archivo `FIRESTORE_RULES.txt` para permitir las tres cuentas.
+
+Después de subir esta versión a GitHub, las reglas incluidas en el archivo no se publican automáticamente. Deben copiarse en Firebase Console, en Firestore Database → Reglas, y presionar **Publicar**.

@@ -463,7 +463,7 @@ function itemRow(item,type,editable=true,withCheck=false) {
     ${check}
     <div class="item-content" ${editAttrs}>
       <div class="item-title">${escapeHtml(item.concept)} ${item.owner!=="general"?`<span class="owner-tag">${NAMES[item.owner]}</span>`:""} <span class="status-tag ${item.sourceType==="carryover"?"carryover":item.realized?"real":"planned"}">${item.sourceType==="carryover"?"Saldo anterior":item.realized?"Real":"Previsto"}</span></div>
-      <div class="item-meta">${escapeHtml(item.category || "Ingreso")} · ${item.sourceType==="carryover"?"Generado automáticamente":formatDate(item.date)}</div>
+      <div class="item-meta">${escapeHtml(item.category || "Ingreso")}${item.sourceType==="carryover"?" · Generado automáticamente":""}</div>
     </div>
     <div class="amount-comparison">
       <small>Prev. ${money(item.plannedAmount)}</small>
@@ -657,7 +657,11 @@ function openRecordModal(kind,id=null,owner=null) {
   const targetKey=location?.key || currentKey();
   if(!assertMonthOpen(targetKey,location?.owner || owner || selectedOwner())) return;
   $("recordForm").reset();
-  $("recordId").value=id||"";$("recordKind").value=kind;$("recordOwner").value=owner||selectedOwner();$("recordDate").value=today();
+  $("recordId").value=id||"";
+  $("recordKind").value=kind;
+  $("recordPeriodKey").value=location?.key || currentKey();
+  $("recordOwner").value=owner||selectedOwner();
+  $("recordDate").value=today();
   const categoryType = kind==="income" ? "income" : "expense";
   const categories = state.settings.categories[categoryType];
   $("recordCategory").innerHTML=categories.map(category=>`<option>${escapeHtml(category)}</option>`).join("");
@@ -685,6 +689,10 @@ function openRecordModal(kind,id=null,owner=null) {
       $("recordDate").value=item.date;
       $("recordCategory").value=item.category || (kind==="income" ? state.settings.categories.income[0] : state.settings.categories.expense[0]);
       $("recordRealized").checked=item.realized;
+      if(item.sourceType==="school-pension"){
+        $("modalTitle").textContent=`Editar cuota escolar · ${item.schoolRowKey==="enrollment"?"Matrícula":item.concept.split("·").at(-1)?.trim() || ""}`;
+        $("recordAmountHelp").textContent="Puedes cambiar el responsable de esta cuota entre Elber y Mayra. Solo se trasladará este mes; el resto del cronograma no cambia.";
+      }
       toggleActualAmountField();
     }
   }
@@ -700,10 +708,19 @@ function closeModal(){ $("formModal").classList.remove("open"); }
 
 async function saveRecord(event) {
   event.preventDefault();
-  if(!assertMonthOpen(currentKey(),$("recordOwner").value)) return;
+
+  const id=$("recordId").value||uid();
+  const kind=$("recordKind").value;
+  const owner=$("recordOwner").value;
+  const periodKey=$("recordPeriodKey").value || currentKey();
+  const existingLocation=findRecordLocation(kind,id);
+  const previousOwner=existingLocation?.owner || owner;
+
+  if(!assertMonthOpen(periodKey,previousOwner)) return;
+  if(owner!==previousOwner && !assertMonthOpen(periodKey,owner)) return;
+
   prepareUndo($("recordId").value ? "Registro actualizado" : "Registro agregado");
-  const id=$("recordId").value||uid(), kind=$("recordKind").value, owner=$("recordOwner").value;
-  const month=ensureMonth(state,currentKey());
+  const month=ensureMonth(state,periodKey);
   const property=kind==="income"?"incomes":kind;
   ["elber","mayra"].forEach(person=>month[person][property]=month[person][property].filter(item=>item.id!==id));
   const plannedRaw=$("recordPlannedAmount").value.trim();
@@ -726,7 +743,6 @@ async function saveRecord(event) {
   }
 
   const realized=actualAmount>0 || $("recordRealized").checked;
-  const existingLocation=findRecordLocation(kind,id);
   if(existingLocation?.item?.sourceType==="carryover"){
     markCarryoverManual(state,existingLocation.key,existingLocation.owner);
   }
@@ -1024,7 +1040,11 @@ function renderSchoolPensions() {
         const record=pensionRecords(state,pension.id).find(({item})=>item.schoolRowKey===row.key);
         if(!record) return "<td>—</td><td>—</td>";
         const locked=isMonthClosed(record.periodKey,record.owner);
-        return `<td class="school-amount-cell ${locked?"locked":""}" ${locked?"":`data-school-edit="${record.item.id}" data-owner="${record.owner}"`}>${money(record.item.plannedAmount)}</td>
+        return `<td class="school-amount-cell ${locked?"locked":""}">
+          <strong>${money(record.item.plannedAmount)}</strong>
+          <span class="school-month-owner">${NAMES[record.owner]}</span>
+          ${locked?"":`<button type="button" class="school-transfer-btn" data-school-edit="${record.item.id}" data-owner="${record.owner}">Cambiar responsable</button>`}
+        </td>
           <td><input type="checkbox" data-school-check="${record.item.id}" data-owner="${record.owner}" ${record.item.realized?"checked":""} ${locked?"disabled":""}></td>`;
       }).join("")}
     </tr>`).join("");
@@ -1046,7 +1066,7 @@ function renderSchoolPensions() {
     return `<article class="school-card" data-school-pension-id="${pension.id}">
       <div>
         <strong>${escapeHtml(pension.studentName)}</strong>
-        <span>Periodo ${pension.year} · Responsable inicial ${NAMES[pension.owner]}</span>
+        <span>Periodo ${pension.year} · Responsable inicial ${NAMES[pension.owner]} · Las cuotas pueden transferirse por mes</span>
       </div>
       <div class="school-card-summary">
         <strong>${money(total)}</strong>
